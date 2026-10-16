@@ -83,5 +83,23 @@ class TestStripRows(unittest.TestCase):
         self.assertIs(row[0], value)
 
 
+class TestMergeCounts(unittest.TestCase):
+    def test_merge_counts(self):
+        values, counts = _columns.merge_counts([
+            np.array([1., 1, 3]), np.array([]), np.array([-np.inf, 1, 2, 3, 3]),
+            np.array([0., np.inf])])
+        np.testing.assert_array_equal(values, [-np.inf, 0, 1, 2, 3, np.inf])
+        np.testing.assert_array_equal(counts, [[0, 0, 2, 0, 1, 0],
+                                               [0, 0, 0, 0, 0, 0],
+                                               [1, 0, 1, 1, 2, 0],
+                                               [0, 1, 0, 0, 0, 1]])
+
+    def test_empty(self):
+        values, counts = _columns.merge_counts([])
+        self.assertEqual((values.shape, counts.shape), ((0,), (0, 0)))
+        values, counts = _columns.merge_counts([np.array([]), np.array([])])
+        self.assertEqual((values.shape, counts.shape), ((0,), (2, 0)))
+
+
 if __name__ == "__main__":
     unittest.main()

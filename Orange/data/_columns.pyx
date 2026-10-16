@@ -210,3 +210,54 @@ def format_floats(const double[:] column, const unsigned char[:] wide,
         else:
             formatted[i] = _double_to_str(value, ccode, precision)
     return formatted
+
+
+def merge_counts(list buckets):
+    """
+    Merge sorted float arrays without nans.
+
+    Returns sorted unique values across all arrays and a 2-d array with the
+    number of occurrences of each value (columns) in each array (rows).
+    The cost is linear in the total length times the number of arrays.
+    """
+    cdef:
+        Py_ssize_t k = len(buckets), b, j, n_unique, pass_
+        np.ndarray[np.float64_t, ndim=1] data = np.concatenate(
+            [np.asarray(x, dtype=np.float64) for x in buckets]
+            or [np.empty(0)])
+        np.ndarray[np.intp_t, ndim=1] ends = np.cumsum(
+            [len(x) for x in buckets], dtype=np.intp)
+        np.ndarray[np.intp_t, ndim=1] pos = np.empty(k, dtype=np.intp)
+        np.ndarray[np.float64_t, ndim=1] values = np.empty(0)
+        np.ndarray[np.float64_t, ndim=2] counts = np.zeros((k, 0))
+        double best, v
+        bint found
+
+    n_unique = 0
+    for pass_ in range(2):
+        if pass_ == 1:
+            values = np.empty(n_unique)
+            counts = np.zeros((k, n_unique))
+        for b in range(k):
+            pos[b] = 0 if b == 0 else ends[b - 1]
+        j = 0
+        while True:
+            found = False
+            for b in range(k):
+                if pos[b] < ends[b]:
+                    v = data[pos[b]]
+                    if not found or v < best:
+                        best = v
+                        found = True
+            if not found:
+                break
+            for b in range(k):
+                while pos[b] < ends[b] and data[pos[b]] == best:
+                    if pass_ == 1:
+                        counts[b, j] += 1
+                    pos[b] += 1
+            if pass_ == 1:
+                values[j] = best
+            j += 1
+        n_unique = j
+    return values, counts

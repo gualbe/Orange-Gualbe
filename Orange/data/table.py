@@ -22,7 +22,7 @@ from scipy.sparse import issparse, csc_matrix
 
 import Orange.data  # import for io.py
 from Orange.data import (
-    _contingency, _valuecount,
+    _contingency, _valuecount, _columns,
     Domain, Variable, Storage, StringVariable, Unknown, Value, Instance,
     ContinuousVariable, DiscreteVariable, MISSING_VALUES,
     DomainConversion)
@@ -2216,14 +2216,14 @@ class Table(Sequence, Storage):
                     if sp.issparse(arr):
                         col_data = arr.data[arr.indptr[arr_i]:arr.indptr[arr_i + 1]]
                         rows = arr.indices[arr.indptr[arr_i]:arr.indptr[arr_i + 1]]
-                        W_ = None if W_ is None else W_[rows]
+                        col_W = None if W_ is None else W_[rows]
                         classes_ = row_data[rows]
                     else:
-                        col_data, W_, classes_ = arr[:, arr_i], W_, row_data
+                        col_data, col_W, classes_ = arr[:, arr_i], W_, row_data
 
                     col_data = col_data.astype(dtype=np.float64)
-                    contingencies[col_i] = _contingency.contingency_floatarray(
-                        col_data, classes_, n_rows, W_)
+                    contingencies[col_i] = _contingency_continuous(
+                        col_data, classes_, n_rows, col_W)
 
         return contingencies
 
@@ -2612,6 +2612,44 @@ def assure_domain_conversion_sparsity(target, source):
     target.metas = match_density[conversion.sparse_metas](target.metas)
     return target
 
+
+
+def _contingency_continuous(col_data, classes, n_classes, weights):
+    """
+    Return the same as `_contingency.contingency_floatarray`.
+
+    For unweighted data with a moderate number of classes, values of each
+    class are sorted separately and merged in a single linear pass, which is
+    much faster than the indirect sort used by the Cython function.
+    """
+    nan_col = np.isnan(col_data)
+    nan_cls = np.isnan(classes)
+    cls_known = classes[~nan_cls].astype(np.intp)
+    if weights is not None or n_classes > 32 or cls_known.size and (
+            cls_known.min() < 0 or cls_known.max() >= n_classes):
+        return _contingency.contingency_floatarray(
+            col_data, classes, n_classes, weights)
+
+    col = col_data[~nan_col]
+    # values with unknown class go to an extra bucket with index n_classes
+    buckets = np.where(nan_cls[~nan_col], n_classes,
+                       classes[~nan_col]).astype(np.intp)
+    if n_classes <= 8:
+        groups = (col[buckets == b] for b in range(n_classes + 1))
+    else:
+        order = np.argsort(buckets, kind="stable")
+        bounds = np.cumsum(np.bincount(buckets, minlength=n_classes + 1))
+        col = col[order]
+        groups = (col[start:end]
+                  for start, end in zip(np.r_[0, bounds[:-1]], bounds))
+    values, counts = _columns.merge_counts([np.sort(g) for g in groups])
+
+    col_unknowns = np.bincount(
+        classes[nan_col & ~nan_cls].astype(np.intp),
+        minlength=n_classes).astype(np.float64)
+    unknowns = float(np.count_nonzero(nan_col & nan_cls))
+    return (values, counts[:n_classes]), col_unknowns, counts[n_classes], \
+        unknowns
 
 class Role:
     Attribute = 0
