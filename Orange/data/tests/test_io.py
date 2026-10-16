@@ -1,6 +1,7 @@
 import os
 import unittest
 from tempfile import NamedTemporaryFile
+from unittest.mock import patch
 
 import numpy as np
 
@@ -190,6 +191,15 @@ class\tmeta\t\t
         TabReader.write_data(rows.append, data)
         self.assertEqual(rows, [["2", "0.250", "v", "1.5"],
                                 ["0.5", "", "", ""]])
+
+    def test_write_data_in_blocks(self):
+        rows = []
+        TabReader.write_data(rows.append, self.data)
+        with patch.object(TabReader, "_WRITE_BLOCK_ROWS", 2):
+            blocked = []
+            TabReader.write_data(blocked.append, self.data)
+        self.assertEqual(blocked, rows)
+        self.assertEqual(len(rows), 3)
 
     def test_roundtrip_xlsx(self):
         with NamedTemporaryFile(suffix=".xlsx", delete=False) as f:

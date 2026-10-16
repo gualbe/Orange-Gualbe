@@ -699,6 +699,8 @@ class _FileWriter:
         else:
             return var.repr_val
 
+    _WRITE_BLOCK_ROWS = 10000
+
     @classmethod
     def format_column(cls, var, column):
         """
@@ -783,11 +785,14 @@ class _FileWriter:
                 write([fmt(v) for fmt, v in zip(formatters, flatten(row))])
             return
 
-        columns = chain.from_iterable(a.T for a in arrays)
-        formatted = [cls.format_column(var, column)
-                     for var, column in zip(vars_, columns)]
-        for row in zip(*formatted):
-            write(list(row))
+        # Format blocks of rows to bound the memory used by formatted values
+        for start in range(0, len(data), cls._WRITE_BLOCK_ROWS):
+            block = slice(start, start + cls._WRITE_BLOCK_ROWS)
+            columns = chain.from_iterable(a[block].T for a in arrays)
+            formatted = [cls.format_column(var, column)
+                         for var, column in zip(vars_, columns)]
+            for row in zip(*formatted):
+                write(list(row))
 
 
 class _FileFormatMeta(Registry):
