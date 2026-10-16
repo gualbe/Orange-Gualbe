@@ -1,0 +1,162 @@
+{
+ "meta": {
+  "rows": 1000000,
+  "rev": "bd6fef4ca",
+  "python": "3.12.15",
+  "numpy": "2.3.5",
+  "machine": "macOS-27.0.1-arm64-arm-64bit",
+  "date": "2026-10-16 19:19:38"
+ },
+ "results": {
+  "from_numpy": {
+   "group": "construct",
+   "time": 0.009188959000312025,
+   "peak_mb": null
+  },
+  "copy": {
+   "group": "construct",
+   "time": 0.024741167000684072,
+   "peak_mb": null
+  },
+  "pickle_roundtrip": {
+   "group": "io",
+   "time": 0.16670145799980673,
+   "peak_mb": null
+  },
+  "tab_write": {
+   "group": "io",
+   "time": 25.25526125000033,
+   "peak_mb": null
+  },
+  "tab_read": {
+   "group": "io",
+   "time": 21.048040499999843,
+   "peak_mb": null
+  },
+  "csv_write": {
+   "group": "io",
+   "time": 25.635656249999556,
+   "peak_mb": null
+  },
+  "to_pandas": {
+   "group": "io",
+   "time": 0.3073328340005901,
+   "peak_mb": null
+  },
+  "from_pandas": {
+   "group": "io",
+   "time": 0.3837736249997761,
+   "peak_mb": null
+  },
+  "rows_bool_mask": {
+   "group": "select",
+   "time": 0.043234750000010536,
+   "peak_mb": null
+  },
+  "rows_random_idx": {
+   "group": "select",
+   "time": 0.0694190409994917,
+   "peak_mb": null
+  },
+  "select_columns": {
+   "group": "select",
+   "time": 0.011780499999986205,
+   "peak_mb": null
+  },
+  "filter_values": {
+   "group": "select",
+   "time": 0.03875087500000518,
+   "peak_mb": null
+  },
+  "concatenate_rows": {
+   "group": "select",
+   "time": 0.07309750000058557,
+   "peak_mb": null
+  },
+  "transform_sparse_add_col": {
+   "group": "select",
+   "time": 0.6623457079995205,
+   "peak_mb": null
+  },
+  "basic_stats": {
+   "group": "stats",
+   "time": 0.24005070900057035,
+   "peak_mb": null
+  },
+  "distributions": {
+   "group": "stats",
+   "time": 1.701318624999658,
+   "peak_mb": null
+  },
+  "contingencies": {
+   "group": "stats",
+   "time": 9.4056700000001,
+   "peak_mb": null
+  },
+  "impute_average": {
+   "group": "preprocess",
+   "time": 0.5815020829995774,
+   "peak_mb": null
+  },
+  "normalize": {
+   "group": "preprocess",
+   "time": 0.8051300000006449,
+   "peak_mb": null
+  },
+  "continuize": {
+   "group": "preprocess",
+   "time": 0.33308716699957586,
+   "peak_mb": null
+  },
+  "discretize_eqfreq": {
+   "group": "preprocess",
+   "time": 2.811448209000446,
+   "peak_mb": null
+  },
+  "pipeline_impute_cont_norm": {
+   "group": "preprocess",
+   "time": 1.718645082999501,
+   "peak_mb": null
+  },
+  "euclidean_5k": {
+   "group": "model",
+   "time": 0.5521987500005707,
+   "peak_mb": null
+  },
+  "naive_bayes_fit_predict": {
+   "group": "model",
+   "time": 4.74601362500016,
+   "peak_mb": null
+  },
+  "logreg_fit_predict": {
+   "group": "model",
+   "time": 2.351787083999625,
+   "peak_mb": null
+  },
+  "tree_fit_20k": {
+   "group": "model",
+   "time": 0.2255810830001792,
+   "peak_mb": null
+  },
+  "random_forest_20k": {
+   "group": "model",
+   "time": 1.0369679579998774,
+   "peak_mb": null
+  },
+  "knn_predict_20k": {
+   "group": "model",
+   "time": 0.4694792079999388,
+   "peak_mb": null
+  },
+  "kmeans_k5": {
+   "group": "model",
+   "time": 17.859411333000025,
+   "peak_mb": null
+  },
+  "cv5_naive_bayes": {
+   "group": "model",
+   "time": 14.17964262499936,
+   "peak_mb": null
+  }
+ }
+}
