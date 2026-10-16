@@ -18,6 +18,7 @@ _variable.c
 _tree_scorers.c
 _distance.c
 _discretize.c
+_columns.c
 _relieff.cpp
 _variable.c
 _som.c

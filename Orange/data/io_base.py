@@ -1,3 +1,4 @@
+import gc
 import pickle
 import re
 import sys
@@ -6,6 +7,7 @@ from typing import Iterable, Optional, Tuple, List, Generator, Callable, Any
 
 from ast import literal_eval
 from collections import OrderedDict
+from contextlib import contextmanager
 from functools import lru_cache
 from itertools import chain, repeat
 from math import isnan
@@ -16,13 +18,15 @@ from glob import glob
 
 import numpy as np
 import pandas
+import scipy.sparse as sp
 
+from Orange.data import _columns
 from Orange.data import Table, Domain, Variable, DiscreteVariable, \
     StringVariable, ContinuousVariable, TimeVariable
 from Orange.data.io_util import Compression, open_compressed, \
     isnastr, guess_data_type, sanitize_variable
 from Orange.data.util import get_unique_names_duplicates
-from Orange.data.variable import VariableMeta
+from Orange.data.variable import VariableMeta, MISSING_VALUES
 from Orange.misc.collections import natural_sorted
 from Orange.util import Registry, flatten, namegen
 
@@ -99,6 +103,24 @@ _RE_TYPES = re.compile(r'^\s*({}|{}|)\s*$'.format(
 _RE_FLAGS = re.compile(r'^\s*( |{}|)*\s*$'.format(
     '|'.join(flatten(filter(None, i) for i in Flags.ALL.items()))
 ))
+
+# Float formats that _columns.format_floats can produce: "%g" and "%.<n>f"
+_RE_SIMPLE_FLOAT_FORMAT = re.compile(r"%(?:\.(\d+))?([gf])")
+
+# String values that denote missing data (same as io_util.isnastr)
+_NA_STRINGS = {v for v in MISSING_VALUES if isinstance(v, str)}
+
+
+
+@contextmanager
+def _gc_paused():
+    enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if enabled:
+            gc.enable()
 
 
 class _ColumnProperties:
@@ -272,19 +294,12 @@ class _TableBuilder:
     @staticmethod
     def _cont_column(data: np.ndarray, col: int,
                      offset=0, **_) -> _ColumnProperties:
-        orig_vals, namask = _TableBuilder._values_mask(data, col)
-        values = np.empty(data.shape[0], dtype=float)
         try:
-            np.copyto(values, orig_vals, casting="unsafe", where=~namask)
-            values[namask] = np.nan
-        except ValueError:
-            row = 0
-            for row, num in enumerate(orig_vals):
-                if not isnastr(num):
-                    try:
-                        float(num)
-                    except ValueError:
-                        break
+            orig_vals = data[:, col]
+        except IndexError:
+            orig_vals = np.array([], dtype=object)
+        values, _, row = _columns.parse_continuous(orig_vals, _NA_STRINGS)
+        if row >= 0:
             raise ValueError(f'Non-continuous value in (1-based) '
                              f'line {row + offset + 1}, column {col + 1}')
         return _ColumnProperties(values=values, coltype=ContinuousVariable,
@@ -536,10 +551,13 @@ class DataTableMixin:
         rowlen = max(map(len, (header.names, header.types, header.flags)))
         strip = False
 
-        # Ensure all data is of equal width in a column-contiguous array
-        data = [equal_len([s.strip() for s in row])
-                for row in data if any(row)]
-        array = np.array(data, dtype=object, order='F')
+        # Ensure all data is of equal width in a column-contiguous array.
+        # Reading creates a list for each row; garbage collection, which would
+        # repeatedly traverse all of them, is paused meanwhile.
+        with _gc_paused():
+            data, strip = _columns.strip_rows(data, rowlen)
+            array = np.array(data, dtype=object, order='F')
+            del data
 
         if strip:
             warnings.warn("Columns with no headers were removed.")
@@ -682,6 +700,71 @@ class _FileWriter:
             return var.repr_val
 
     @classmethod
+    def format_column(cls, var, column):
+        """
+        Return a list with values of `column` (a 1-d array with values of
+        `var`) formatted for writing.
+
+        The result equals `[cls.formatter(var)(v) for v in column]`, but
+        common variable types are formatted with vectorized operations.
+        """
+        if cls.formatter.__func__ is _FileWriter.formatter.__func__:
+            if var.is_continuous and not var.is_time \
+                    and type(var).repr_val is ContinuousVariable.repr_val:
+                return cls._format_continuous(var, column)
+            if var.is_discrete:
+                formatted = cls._format_discrete(var, column)
+                if formatted is not None:
+                    return formatted
+            if var.is_string:
+                return [("" if isnull else value) for value, isnull in
+                        zip(column.tolist(), pandas.isnull(column).tolist())]
+        fmt = cls.formatter(var)
+        return [fmt(v) for v in column]
+
+    @staticmethod
+    def _format_continuous(var, column):
+        # Mirrors ContinuousVariable.repr_val, with "" for missing values
+        column = np.ascontiguousarray(column, dtype=float)
+        fmt = var._format_str  # pylint: disable=protected-access
+        wide = None
+        if var.format_str != "%g":
+            decimals = var.number_of_decimals
+            with np.errstate(invalid="ignore"):
+                wide = np.abs(np.round(column, decimals) - column) \
+                    > var._max_round_diff  # pylint: disable=protected-access
+        match = _RE_SIMPLE_FLOAT_FORMAT.fullmatch(fmt)
+        if match is not None:
+            code, precision = match.group(2), int(match.group(1) or 6)
+            return _columns.format_floats(
+                column, None if wide is None else wide.view(np.uint8),
+                code, precision, (var.number_of_decimals or 0) + 2)
+
+        values = column.tolist()
+        formatted = [fmt % v for v in values]
+        if wide is not None:
+            for i in np.flatnonzero(wide):
+                formatted[i] = f"{values[i]:.{var.number_of_decimals + 2}f}"
+        for i in np.flatnonzero(np.isinf(column)):
+            formatted[i] = "?"
+        for i in np.flatnonzero(np.isnan(column)):
+            formatted[i] = ""
+        return formatted
+
+    @staticmethod
+    def _format_discrete(var, column):
+        # Returns None for values that are not valid indices; the caller
+        # then falls back to formatting values one by one
+        column = np.asarray(column, dtype=float)
+        nans = np.isnan(column)
+        indices = np.where(nans, len(var.values), column).astype(int)
+        known = indices[~nans]
+        if known.size and (known.min() < 0 or known.max() >= len(var.values)):
+            return None
+        labels = np.array(list(var.values) + [""], dtype=object)
+        return labels[indices].tolist()
+
+    @classmethod
     def write_data(cls, write, data):
         """`write` is a callback that accepts an iterable"""
         vars_ = list(
@@ -689,13 +772,22 @@ class _FileWriter:
                   data.domain.class_vars,
                   data.domain.metas,
                   data.domain.attributes))
+        arrays = [data.W if data.W.ndim > 1 else data.W[:, np.newaxis],
+                  data.Y if data.Y.ndim > 1 else data.Y[:, np.newaxis],
+                  data.metas,
+                  data.X]
 
-        formatters = [cls.formatter(v) for v in vars_]
-        for row in zip(data.W if data.W.ndim > 1 else data.W[:, np.newaxis],
-                       data.Y if data.Y.ndim > 1 else data.Y[:, np.newaxis],
-                       data.metas,
-                       data.X):
-            write([fmt(v) for fmt, v in zip(formatters, flatten(row))])
+        if any(sp.issparse(a) for a in arrays) or not vars_:
+            formatters = [cls.formatter(v) for v in vars_]
+            for row in zip(*arrays):
+                write([fmt(v) for fmt, v in zip(formatters, flatten(row))])
+            return
+
+        columns = chain.from_iterable(a.T for a in arrays)
+        formatted = [cls.format_column(var, column)
+                     for var, column in zip(vars_, columns)]
+        for row in zip(*formatted):
+            write(list(row))
 
 
 class _FileFormatMeta(Registry):

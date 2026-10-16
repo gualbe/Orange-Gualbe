@@ -129,7 +129,9 @@ class CSVReader(FileFormat, DataTableMixin):
     OPTIONAL_TYPE_ANNOTATIONS = True
 
     def read(self):
-        for encoding in (lambda: ('us-ascii', None),                 # fast
+        # UTF-8 is tried first: it also decodes ASCII, and files with non-ASCII
+        # characters (usually UTF-8) are then not parsed twice
+        for encoding in (lambda: ('utf-8-sig', None),                # fast
                          lambda: (detect_encoding(self.filename), None),  # precise
                          lambda: (locale.getpreferredencoding(False), None),
                          lambda: (sys.getdefaultencoding(), None),   # desperate
