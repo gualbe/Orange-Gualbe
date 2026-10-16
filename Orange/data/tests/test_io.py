@@ -1,6 +1,7 @@
 import os
 import unittest
 from tempfile import NamedTemporaryFile
+from unittest.mock import patch
 
 import numpy as np
 
@@ -140,6 +141,65 @@ class\tmeta\t\t
 7\t\t\t1.06250""".strip())
         finally:
             os.remove(fname)
+
+    def test_format_column_matches_formatter(self):
+        rng = np.random.default_rng(0)
+        values = np.concatenate([
+            rng.standard_normal(500) * 10.0 ** rng.integers(-8, 8, 500),
+            np.round(rng.standard_normal(200), 2),
+            [0, -0.0, 1e-300, 1e300, 0.5, 2.5, 1.0625, 123456789.987654321,
+             np.nan, np.inf, -np.inf]])
+        for decimals in (None, 0, 1, 2, 3, 6, 10, 20):
+            var = ContinuousVariable("x", number_of_decimals=decimals)
+            fmt = TabReader.formatter(var)
+            self.assertEqual(TabReader.format_column(var, values),
+                             [fmt(v) for v in values], decimals)
+
+        var = ContinuousVariable("x", number_of_decimals=2)
+        var.format_str = "%.2e"
+        fmt = TabReader.formatter(var)
+        self.assertEqual(TabReader.format_column(var, values),
+                         [fmt(v) for v in values])
+
+        var = TimeVariable("t", have_date=True, have_time=True)
+        times = np.array([0, 1.5e9, np.nan])
+        fmt = TabReader.formatter(var)
+        self.assertEqual(TabReader.format_column(var, times),
+                         [fmt(v) for v in times])
+
+        var = DiscreteVariable("a", values=tuple("xyz"))
+        column = np.array([0, 2, np.nan, 1])
+        self.assertEqual(TabReader.format_column(var, column),
+                         ["x", "z", "", "y"])
+        with self.assertRaises(IndexError):
+            TabReader.format_column(var, np.array([0, 3]))
+
+        var = StringVariable("s")
+        column = np.array(["foo", None, np.nan, ""], dtype=object)
+        self.assertEqual(TabReader.format_column(var, column),
+                         ["foo", "", "", ""])
+
+    def test_write_tab_weights_and_meta_types(self):
+        domain = Domain([ContinuousVariable("x")], None,
+                        [ContinuousVariable("m", number_of_decimals=1),
+                         DiscreteVariable("n", values=("u", "v"))])
+        data = Table.from_numpy(
+            domain, np.array([[1.5], [np.nan]]), None,
+            np.array([[0.25, 1], [np.nan, np.nan]], dtype=object),
+            W=np.array([2, 0.5]))
+        rows = []
+        TabReader.write_data(rows.append, data)
+        self.assertEqual(rows, [["2", "0.250", "v", "1.5"],
+                                ["0.5", "", "", ""]])
+
+    def test_write_data_in_blocks(self):
+        rows = []
+        TabReader.write_data(rows.append, self.data)
+        with patch.object(TabReader, "_WRITE_BLOCK_ROWS", 2):
+            blocked = []
+            TabReader.write_data(blocked.append, self.data)
+        self.assertEqual(blocked, rows)
+        self.assertEqual(len(rows), 3)
 
     def test_roundtrip_xlsx(self):
         with NamedTemporaryFile(suffix=".xlsx", delete=False) as f:

@@ -14,6 +14,7 @@ except ImportError:  # pandas < 2.2.0
 
 from chardet import UniversalDetector
 
+from Orange.data import _columns
 from Orange.data import (
     is_discrete_values, MISSING_VALUES, Variable,
     DiscreteVariable, StringVariable, ContinuousVariable, TimeVariable, Table,
@@ -197,11 +198,13 @@ def sanitize_variable(valuemap, values, orig_values, coltype, coltype_kwargs,
     assert issubclass(coltype, Variable)
 
     def get_number_of_decimals(values):
-        len_ = len
-        ndecimals = max((len_(value) - value.find(".")
-                         for value in values if "." in value),
-                        default=1)
-        return ndecimals - 1
+        try:
+            return _columns.max_decimals(values)
+        except TypeError:  # not all strings; keep the original semantics
+            ndecimals = max((len(value) - value.find(".")
+                             for value in values if "." in value),
+                            default=1)
+            return ndecimals - 1
 
     if issubclass(coltype, DiscreteVariable) and valuemap is not None:
         coltype_kwargs.update(values=valuemap)
