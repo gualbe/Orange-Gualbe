@@ -14,6 +14,7 @@ from xml.sax.saxutils import escape
 from typing import Dict, Any, List, Mapping, Optional
 
 import numpy as np
+import scipy.sparse as sp
 
 from AnyQt.QtWidgets import (
     QGraphicsScene, QGraphicsView, QGraphicsWidget,
@@ -465,17 +466,17 @@ class OWVennDiagram(widget.OWWidget):
                             new_atr.attributes['Selected'] = is_selected
                         domain[atr_type].append(new_atr)
                         renamed.append(var_name.name)
-                        values[atr_type].append(getattr(self.data[table_key].table[:, var_name],
-                                                        self.atr_vals[atr_type])
-                                                .reshape(-1, 1))
+                        values[atr_type].append(_dense(getattr(
+                            self.data[table_key].table[:, var_name],
+                            self.atr_vals[atr_type])).reshape(-1, 1))
                 else:
                     new_atr = var_data[1][0][0].copy()
                     if columns and atr_type == 'attributes':
                         new_atr.attributes['Selected'] = is_selected
                     domain[atr_type].append(new_atr)
-                    values[atr_type].append(getattr(self.data[var_data[1][0][1]].table[:, var_name],
-                                                    self.atr_vals[atr_type])
-                                            .reshape(-1, 1))
+                    values[atr_type].append(_dense(getattr(
+                        self.data[var_data[1][0][1]].table[:, var_name],
+                        self.atr_vals[atr_type])).reshape(-1, 1))
         if renamed:
             self.Warning.renamed_vars(', '.join(renamed))
         return self.merge_data(domain, values)
@@ -520,18 +521,18 @@ class OWVennDiagram(widget.OWWidget):
         t1_inter = [ids[key1][val] for val in inter_val]
         t2_inter = [ids[key2][val] for val in inter_val]
         return arrays_equal(
-            getattr(t1[t1_inter, name],
-                    data_type).reshape(-1, 1),
-            getattr(t2[t2_inter, name],
-                    data_type).reshape(-1, 1),
+            _dense(getattr(t1[t1_inter, name],
+                           data_type)).reshape(-1, 1),
+            _dense(getattr(t2[t2_inter, name],
+                           data_type)).reshape(-1, 1),
             type_)
 
     def arrays_equal_cols(self, key1, key2, name, data_type, type_, _ids=None):
         return arrays_equal(
-            getattr(self.data[key1].table[:, name],
-                    data_type),
-            getattr(self.data[key2].table[:, name],
-                    data_type),
+            _dense(getattr(self.data[key1].table[:, name],
+                           data_type)),
+            _dense(getattr(self.data[key2].table[:, name],
+                           data_type)),
             type_)
 
     def create_from_columns(self, columns, relevant_keys, get_selected):
@@ -591,8 +592,9 @@ class OWVennDiagram(widget.OWWidget):
                         idx = list(self.data).index(table_key) + 1
                         domain[atr_type].append(var.copy(name='{} ({})'.format(var_name, idx)))
                         renamed.append(var_name.name)
-                        v = getattr(temp[list(ids[table_key].values()), var_name],
-                                    self.atr_vals[atr_type])
+                        v = _dense(getattr(
+                            temp[list(ids[table_key].values()), var_name],
+                            self.atr_vals[atr_type]))
                         perm = permutations[table_key]
                         if len(v) < len(all_ids):
                             values[atr_type].append(pad_columns(v, perm, len(all_ids)))
@@ -604,9 +606,10 @@ class OWVennDiagram(widget.OWWidget):
                     for _, table_key in var_data[1]:
                         #different tables have different part of the same attribute vector
                         perm = permutations[table_key]
-                        v = getattr(self.data[table_key].table[list(ids[table_key].values()),
-                                                               var_name],
-                                    self.atr_vals[atr_type]).reshape(-1, 1)
+                        v = _dense(getattr(
+                            self.data[table_key].table[
+                                list(ids[table_key].values()), var_name],
+                            self.atr_vals[atr_type])).reshape(-1, 1)
                         value = value.astype(v.dtype, copy=False)
                         value[perm] = v
                     values[atr_type].append(value)
@@ -675,7 +678,8 @@ class OWVennDiagram(widget.OWWidget):
             array = np.full((n, len(all_el)), np.nan)
             if cur_el:
                 perm = get_perm(cur_el, all_el)
-                b = getattr(table, atr_vals[atr_type]).reshape(len(array), len(perm))
+                b = _dense(getattr(table, atr_vals[atr_type])) \
+                    .reshape(len(array), len(perm))
                 array = array.astype(b.dtype, copy=False)
                 array[:, perm] = b
             exp.append(array)
@@ -1430,6 +1434,12 @@ def append_column(data, where, variable, column):
     new_data = data.transform(domain)
     new_data[:, variable] = column
     return new_data
+
+def _dense(values):
+    # columns of sparse tables are sparse matrices; they are stacked and
+    # compared with dense arrays (gh-5700)
+    return values.toarray() if sp.issparse(values) else values
+
 
 def arrays_equal(a, b, type_):
     """

@@ -389,7 +389,9 @@ class OWMergeData(widget.OWWidget):
             if col.size and extra_col.size \
                     and isinstance(col[0][0], str) \
                     and isinstance(extra_col[0][0], str):
-                n_inter = len(np.intersect1d(col, extra_col))
+                # the number of distinct common values; sets avoid sorting
+                # millions of strings in np.intersect1d
+                n_inter = len(set(col.ravel()) & set(extra_col.ravel()))
                 if n_inter > n_max_intersect:
                     n_max_intersect, attr, extra_attr = n_inter, m_a, m_b
         return attr, extra_attr

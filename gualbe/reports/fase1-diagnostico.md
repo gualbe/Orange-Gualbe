@@ -148,10 +148,12 @@ antes y después, como en la primera tanda.
 4. **Bloque D: resto:** #7326 (integrar la PR #7331), #7020, #6047, #6499,
    #5700; P6 (Merge Data), P7 (Rank), P8 (discretización).
 
-**Estado (19-oct-2026):** bloques A, B y C hechos (ver `gualbe/CHANGELOG.md`).
-En el bloque C, P5 (Unique) se descartó: agrupar con pandas no es más rápido
-que el diccionario actual. Decidido: #6916 se aplica escribiendo todas las
-cifras. Pendiente: bloque D.
+**Estado (19-oct-2026):** bloques A, B, C y D hechos (ver
+`gualbe/CHANGELOG.md`). Descartadas por no compensar: P5 (Unique: agrupar
+con pandas no es más rápido que el diccionario actual) y P8 (la
+discretización por frecuencias necesita la distribución ordenada completa
+para dar los mismos cortes). Decidido: #6916 se aplica escribiendo todas las
+cifras.
 
 **Decisiones que necesitan tu visto bueno**, porque cambian salidas
 existentes:

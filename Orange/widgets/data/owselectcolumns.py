@@ -206,10 +206,15 @@ class SelectAttributesDomainContextHandler(DomainContextHandler):
         value = context.values["domain_role_hints"][0]
         assigned = [desc for desc, (role, _) in value.items()
                     if role != "available"]
-        if not assigned:
+        if not any(all_vars.get(attr) == vtype for attr, vtype in assigned):
             return self.NO_MATCH
-        return sum(all_vars.get(attr) == vtype for attr, vtype in assigned) \
-               / len(assigned)
+        # Score by all variables of the context, not only by the assigned
+        # ones: otherwise another widget's context, whose assigned variables
+        # all exist, outscores this widget's own context when one of its
+        # variables is missing, and its selection is taken over (gh-7020).
+        # Contexts from the same data now tie, and own contexts win ties.
+        return sum(all_vars.get(attr) == vtype for attr, vtype in value) \
+               / len(value)
 
     def filter_value(self, setting, data, domain, attrs, metas):
         if setting.name != "domain_role_hints":

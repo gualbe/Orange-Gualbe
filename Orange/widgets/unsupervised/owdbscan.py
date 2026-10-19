@@ -81,6 +81,8 @@ class OWDBSCAN(widget.OWWidget):
 
     min_samples = Setting(4)
     eps = Setting(0.5)
+    # eps is chosen from k-distances until the user sets it (gh-6047)
+    auto_eps = Setting(True)
     metric_idx = Setting(0)
     normalize = Setting(True)
     auto_commit = Setting(True)
@@ -94,6 +96,7 @@ class OWDBSCAN(widget.OWWidget):
         self.data_normalized = None
         self.db = None
         self.model = None
+        self._moving_cut_line = False
 
         box = gui.widgetBox(self.controlArea, "Parameters")
         gui.spin(box, self, "min_samples", 1, 100, 1,
@@ -152,7 +155,10 @@ class OWDBSCAN(widget.OWWidget):
     def _compute_and_plot(self, cut_point=None):
         self._compute_kdistances()
         if cut_point is None:
-            self._compute_cut_point()
+            if self.auto_eps:
+                self._compute_cut_point()
+            else:
+                self.cut_point = self._find_nearest_dist(self.eps)
         self._plot_graph()
 
     def _plot_graph(self):
@@ -240,11 +246,18 @@ class OWDBSCAN(widget.OWWidget):
         return idx
 
     def _eps_changed(self):
+        self.auto_eps = False
         # find the closest value to eps
         if self.data is None:
             return
         self.cut_point = self._find_nearest_dist(self.eps)
-        self.plot.set_cut_point(self.cut_point)
+        # moving the cut line must not overwrite eps with the nearest
+        # k-distance, so that values beyond the graph can be set (gh-6047)
+        self._moving_cut_line = True
+        try:
+            self.plot.set_cut_point(self.cut_point)
+        finally:
+            self._moving_cut_line = False
         self._invalidate()
 
     def _metirc_changed(self):
@@ -254,6 +267,9 @@ class OWDBSCAN(widget.OWWidget):
 
     def _on_cut_changed(self, value):
         # cut changed by means of a cut line over the scree plot.
+        if self._moving_cut_line:
+            return
+        self.auto_eps = False
         self.cut_point = value
         self.eps = self.k_distances[value]
 
