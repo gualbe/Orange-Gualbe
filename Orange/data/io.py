@@ -27,7 +27,8 @@ import openpyxl
 from Orange.data import _io, Table, Domain, ContinuousVariable, update_origin
 from Orange.data import Compression, open_compressed, detect_encoding, \
     isnastr, guess_data_type, sanitize_variable
-from Orange.data.io_base import FileFormatBase, Flags, DataTableMixin, PICKLE_PROTOCOL
+from Orange.data.io_base import FileFormatBase, Flags, DataTableMixin, PICKLE_PROTOCOL, \
+    _RE_TYPES
 
 from Orange.util import flatten
 
@@ -270,6 +271,23 @@ class _BaseExcelReader(FileFormat, DataTableMixin):
         return table
 
 
+def _skip_empty_rows(rows):
+    """
+    Skip empty rows, except for an empty third row that follows a row of
+    type annotations: it is the flags row of a three-line header, which is
+    empty when there is no class or meta variable (gh-7276).
+    """
+    rows = iter(rows)
+    head = []
+    for row in rows:
+        if any(row) or len(head) == 2 and all(map(_RE_TYPES.match, head[1])):
+            head.append(row)
+        if len(head) == 3:
+            break
+    yield from head
+    yield from filter(any, rows)
+
+
 class ExcelReader(_BaseExcelReader):
     """Reader for .xlsx files"""
     EXTENSIONS = ('.xlsx',)
@@ -309,7 +327,7 @@ class ExcelReader(_BaseExcelReader):
         max_col = sheet.max_column
         cells = ([str_(cell.value) for cell in row[min_col - 1: max_col]]
                  for row in sheet.iter_rows(sheet.min_row, sheet.max_row + 1))
-        return filter(any, cells)
+        return _skip_empty_rows(cells)
 
     def _get_active_sheet(self) -> openpyxl.worksheet.worksheet.Worksheet:
         if self.sheet:
@@ -377,10 +395,10 @@ class XlsReader(_BaseExcelReader):
         first_col = next(i for i in range(sheet.ncols)
                          if sheet.cell_value(first_row, i))
         row_len = sheet.row_len(first_row)
-        return filter(any, ([str_(sheet.cell(row, col))
-                             if col < sheet.row_len(row) else ''
-                             for col in range(first_col, row_len)]
-                            for row in range(first_row, sheet.nrows)))
+        return _skip_empty_rows([str_(sheet.cell(row, col))
+                                 if col < sheet.row_len(row) else ''
+                                 for col in range(first_col, row_len)]
+                                for row in range(first_row, sheet.nrows))
 
     def _get_active_sheet(self) -> xlrd.sheet.Sheet:
         if self.sheet:

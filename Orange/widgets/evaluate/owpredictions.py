@@ -693,7 +693,9 @@ class OWPredictions(OWWidget):
         self._delegates.clear()
         colors = self._get_colors()
         shown_class = ""  # just to silence warnings about undefined var
-        if self.shown_probs == self.NO_PROBS:
+        # shown_probs may come from a context of a discrete class even when
+        # the current class is not discrete (gh-6672)
+        if self.shown_probs == self.NO_PROBS or not self.is_discrete_class:
             tooltip_probs = ()
         elif self.shown_probs == self.DATA_PROBS:
             tooltip_probs = self.class_var.values
@@ -925,10 +927,13 @@ class OWPredictions(OWWidget):
             data_model = self.dataview.model()
             predictions_view = self.predictionsview
             predictions_model = predictions_view.model()
+            # there is no model for predictions without predictors (gh-6672)
+            n_predictions = 0 if predictions_model is None \
+                else predictions_model.columnCount()
 
             # use ItemDelegate to style prediction values
             delegates = [predictions_view.itemDelegateForColumn(i)
-                         for i in range(predictions_model.columnCount())]
+                         for i in range(n_predictions)]
 
             # iterate only over visible columns of data's QTableView
             iter_data_cols = list(filter(lambda x: not self.dataview.isColumnHidden(x),
@@ -937,7 +942,7 @@ class OWPredictions(OWWidget):
             # print header
             yield [''] + \
                   [predictions_model.headerData(col, Qt.Horizontal, Qt.DisplayRole)
-                   for col in range(predictions_model.columnCount())] + \
+                   for col in range(n_predictions)] + \
                   [data_model.headerData(col, Qt.Horizontal, Qt.DisplayRole)
                    for col in iter_data_cols]
 
