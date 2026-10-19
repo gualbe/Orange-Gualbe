@@ -191,6 +191,9 @@ def format_floats(const double[:] column, const unsigned char[:] wide,
     Format values as `f"%.{precision}{code}" % value`, with "" for nan and
     "?" for infinite values. Where `wide` (if given) is nonzero, use
     `wide_precision` and format code "f" instead.
+
+    If the result does not convert back to the same number, the shortest
+    string that does is used instead, so no precision is lost.
     """
     cdef:
         Py_ssize_t i, n = column.shape[0]
@@ -206,10 +209,25 @@ def format_floats(const double[:] column, const unsigned char[:] wide,
         elif value == INFINITY or value == -INFINITY:
             formatted[i] = "?"
         elif has_wide and wide[i]:
-            formatted[i] = _double_to_str(value, b'f', wide_precision)
+            formatted[i] = _exact_str(value, b'f', wide_precision)
         else:
-            formatted[i] = _double_to_str(value, ccode, precision)
+            formatted[i] = _exact_str(value, ccode, precision)
     return formatted
+
+
+cdef str _exact_str(double value, char code, int precision):
+    cdef:
+        char *buf = PyOS_double_to_string(value, code, precision, 0, NULL)
+        char *end
+        double parsed
+    try:
+        parsed = PyOS_string_to_double(buf, &end, NULL)
+        if PyErr_Occurred() == NULL and parsed == value:
+            return buf.decode("ascii")
+        PyErr_Clear()
+    finally:
+        PyMem_Free(buf)
+    return _double_to_str(value, b'r', 0)
 
 
 def merge_counts(list buckets):

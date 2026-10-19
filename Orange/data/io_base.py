@@ -112,6 +112,20 @@ _NA_STRINGS = {v for v in MISSING_VALUES if isinstance(v, str)}
 
 
 
+
+def _exact(text, value):
+    """
+    Return `text` (a formatted `value`) if it converts back to `value`, and
+    otherwise the shortest string that does, so writing loses no precision.
+    """
+    try:
+        if float(text) == value:
+            return text
+    except ValueError:  # e.g. "?" for infinity
+        return text
+    text = repr(float(value))
+    return text[:-2] if text.endswith(".0") else text
+
 @contextmanager
 def _gc_paused():
     enabled = gc.isenabled()
@@ -691,6 +705,9 @@ class _FileWriter:
         if var.is_time:
             return var.repr_val
         elif var.is_continuous:
+            if type(var).repr_val is ContinuousVariable.repr_val:
+                return lambda value: \
+                    "" if isnan(value) else _exact(var.repr_val(value), value)
             return lambda value: "" if isnan(value) else var.repr_val(value)
         elif var.is_discrete:
             return lambda value: "" if isnan(value) else var.values[int(value)]
@@ -747,6 +764,8 @@ class _FileWriter:
         if wide is not None:
             for i in np.flatnonzero(wide):
                 formatted[i] = f"{values[i]:.{var.number_of_decimals + 2}f}"
+        formatted = [_exact(text, value)
+                     for text, value in zip(formatted, values)]
         for i in np.flatnonzero(np.isinf(column)):
             formatted[i] = "?"
         for i in np.flatnonzero(np.isnan(column)):
