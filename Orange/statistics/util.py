@@ -5,6 +5,7 @@ and once used from the bottlechest package (fork of bottleneck).
 It also patches bottleneck to contain these functions.
 """
 import warnings
+from functools import lru_cache
 from typing import Iterable
 
 import bottleneck as bn
@@ -556,12 +557,65 @@ def nanmode(x, axis=0):
     returns zero). Also, this function returns count NaN if all values are NaN
     (scipy=1.3.0 returns some number)."""
     nans = np.isnan(np.array(x)).sum(axis=axis, keepdims=True) == x.shape[axis]
-    res = scipy.stats.mode(x, axis, keepdims=True)
+    if type(x) is np.ndarray \
+            and x.dtype.kind == "f" and x.ndim in (1, 2) and x.size:
+        mode, count = _dense_mode(x, axis)
+        result_type = _mode_result_type()
+    else:
+        res = scipy.stats.mode(x, axis, keepdims=True)
+        mode, count, result_type = res.mode, res.count, type(res)
     # type(res) is ModeResult. ModeResult is defined in scipy.stats.stats; this
     # namespace is deprecated, but ModeResult is not exported to scipy.stats
     # Hence we use type(res) to avoid a warning.
-    return type(res)(np.where(nans, np.nan, res.mode),
-                     np.where(nans, np.nan, res.count))
+    return result_type(np.where(nans, np.nan, mode),
+                       np.where(nans, np.nan, count))
+
+
+@lru_cache(maxsize=1)
+def _mode_result_type():
+    return type(scipy.stats.mode(np.zeros(1), keepdims=True))
+
+
+def _dense_mode(x, axis):
+    """
+    Mode and count along `axis` with the semantics of scipy.stats.mode (nan
+    is a value, but wins only if strictly most frequent; ties go to the
+    smallest value; the sign of a zero mode may differ, as it does in scipy
+    depending on the order of sorting), computed column by column with
+    bincount for small non-negative integers and with a sort of a contiguous
+    copy otherwise.
+    """
+    x2 = x[:, None] if x.ndim == 1 else np.moveaxis(x, axis, 0)
+    modes = np.empty(x2.shape[1])
+    counts = np.empty(x2.shape[1], dtype=np.int64)
+    for j in range(x2.shape[1]):
+        modes[j], counts[j] = _column_mode(np.ascontiguousarray(x2[:, j]))
+    shape = (1,) if x.ndim == 1 else \
+        tuple(1 if i == axis % 2 else n for i, n in enumerate(x.shape))
+    return modes.reshape(shape), counts.reshape(shape)
+
+
+def _column_mode(col):
+    nans = np.isnan(col)
+    n_nans = int(nans.sum())
+    values = col[~nans] if n_nans else col
+    if not values.size:
+        return np.nan, n_nans
+    if values.min() >= 0 and values.max() < 2 * len(values) + 1000 \
+            and np.all(values == np.floor(values)):
+        bins = np.bincount(values.astype(np.intp))
+        best = int(bins.argmax())
+        mode, count = float(best), int(bins[best])
+    else:
+        values = np.sort(values)
+        starts = np.r_[0, np.flatnonzero(values[1:] != values[:-1]) + 1]
+        lengths = np.diff(np.r_[starts, len(values)])
+        best = int(lengths.argmax())
+        start, count = starts[best], int(lengths[best])
+        mode = values[start]
+    if n_nans > count:
+        return np.nan, n_nans
+    return mode, count
 
 
 def unique(x, return_counts=False):
