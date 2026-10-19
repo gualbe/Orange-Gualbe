@@ -67,8 +67,11 @@ class TreeLearner(Learner):
         self.sufficient_majority = self.params['sufficient_majority'] = sufficient_majority
         self.max_depth = self.params['max_depth'] = max_depth
 
-    def _select_attr(self, data):
+    def _select_attr(self, data, sorted_idx=None):
         """Select the attribute for the next split.
+
+        If given, `sorted_idx[i]` holds indices of data instances sorted by
+        the i-th (numeric) attribute, so they need not be sorted again.
 
         Returns:
             tuple with an instance of Node and a numpy array indicating
@@ -144,7 +147,10 @@ class TreeLearner(Learner):
             """Scoring for numeric attributes"""
             nans = np.sum(np.isnan(col_x))
             non_nans = len(col_x) - nans
-            arginds = np.argsort(col_x)[:non_nans]
+            if sorted_idx is not None and sorted_idx[attr_no] is not None:
+                arginds = sorted_idx[attr_no][:non_nans]
+            else:
+                arginds = np.argsort(col_x)[:non_nans]
             best_score, best_cut = _tree_scorers.find_threshold_entropy(
                 col_x, data.Y, arginds,
                 len(class_var.values), self.min_samples_leaf)
@@ -176,8 +182,12 @@ class TreeLearner(Learner):
         best_res[0].value = distribution.Discrete(data, class_var)
         return best_res
 
-    def _build_tree(self, data, active_inst, level=1):
+    def _build_tree(self, data, active_inst, level=1, sorted_idx=None):
         """Induce a tree from the given data
+
+        `sorted_idx` are indices of instances in `active_inst` sorted by
+        each numeric attribute (None for others), or None to sort at each
+        node.
 
         Returns:
             root node (Node)"""
@@ -190,13 +200,28 @@ class TreeLearner(Learner):
                 self.max_depth is not None and level > self.max_depth:
             node, branches, n_children = Node(None, None, distr), None, 0
         else:
-            node, branches, n_children = self._select_attr(node_insts)
+            node, branches, n_children = \
+                self._select_attr(node_insts, sorted_idx)
         node.subset = active_inst
         if branches is not None:
-            node.children = [
-                self._build_tree(data, active_inst[branches == br], level + 1)
-                for br in range(n_children)]
+            node.children = []
+            for br in range(n_children):
+                in_branch = branches == br
+                node.children.append(self._build_tree(
+                    data, active_inst[in_branch], level + 1,
+                    _split_sorted(sorted_idx, in_branch)))
         return node
+
+    @staticmethod
+    def _presort(data):
+        # Indices of instances sorted by each numeric attribute; sorting once
+        # at the root and splitting the order between children is faster
+        # than sorting at each node and gives the same tree
+        if sp.issparse(data.X):
+            return None
+        return [np.argsort(data.X[:, i]) if attr.is_continuous
+                else None
+                for i, attr in enumerate(data.domain.attributes)]
 
     def fit_storage(self, data):
         if self.binarize and any(
@@ -209,7 +234,8 @@ class TreeLearner(Learner):
                              format(self.MAX_BINARIZATION))
 
         active_inst = np.nonzero(~np.isnan(data.Y))[0].astype(np.int32)
-        root = self._build_tree(data, active_inst)
+        root = self._build_tree(data, active_inst,
+                                sorted_idx=self._presort(data[active_inst]))
         if root is None:
             distr = distribution.Discrete(data, data.domain.class_var)
             if np.sum(distr) == 0:
@@ -219,6 +245,18 @@ class TreeLearner(Learner):
         model = TreeModel(data, root)
         return model
 
+
+
+def _split_sorted(sorted_idx, in_branch):
+    """
+    Return indices sorted by each attribute for instances in a branch, given
+    the sorted indices for the parent and a mask of instances in the branch.
+    """
+    if sorted_idx is None:
+        return None
+    new_index = np.cumsum(in_branch) - 1
+    return [None if idx is None else new_index[idx[in_branch[idx]]]
+            for idx in sorted_idx]
 
 class SklTreeClassifier(SklModel, TreeModelInterface):
     """Wrapper for SKL's tree classifier with the interface API for

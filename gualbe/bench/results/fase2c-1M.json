@@ -1,0 +1,167 @@
+{
+ "meta": {
+  "rows": 1000000,
+  "rev": "6ba6d75bc-dirty",
+  "python": "3.12.15",
+  "numpy": "2.3.5",
+  "machine": "macOS-27.0.1-arm64-arm-64bit",
+  "date": "2026-10-19 20:22:26"
+ },
+ "results": {
+  "from_numpy": {
+   "group": "construct",
+   "time": 0.00891129099909449,
+   "peak_mb": null
+  },
+  "copy": {
+   "group": "construct",
+   "time": 0.02058704199953354,
+   "peak_mb": null
+  },
+  "pickle_roundtrip": {
+   "group": "io",
+   "time": 0.14173900000241701,
+   "peak_mb": null
+  },
+  "tab_write": {
+   "group": "io",
+   "time": 15.827388749999955,
+   "peak_mb": null
+  },
+  "tab_read": {
+   "group": "io",
+   "time": 14.478951542001596,
+   "peak_mb": null
+  },
+  "tab_write_3dec": {
+   "group": "io",
+   "time": 6.935004708000633,
+   "peak_mb": null
+  },
+  "csv_write": {
+   "group": "io",
+   "time": 16.02391025000179,
+   "peak_mb": null
+  },
+  "to_pandas": {
+   "group": "io",
+   "time": 0.275942500000383,
+   "peak_mb": null
+  },
+  "from_pandas": {
+   "group": "io",
+   "time": 0.3398982500002603,
+   "peak_mb": null
+  },
+  "rows_bool_mask": {
+   "group": "select",
+   "time": 0.039258749999135034,
+   "peak_mb": null
+  },
+  "rows_random_idx": {
+   "group": "select",
+   "time": 0.06265091699970071,
+   "peak_mb": null
+  },
+  "select_columns": {
+   "group": "select",
+   "time": 0.01161879099890939,
+   "peak_mb": null
+  },
+  "filter_values": {
+   "group": "select",
+   "time": 0.0342285830010951,
+   "peak_mb": null
+  },
+  "concatenate_rows": {
+   "group": "select",
+   "time": 0.06357354099964141,
+   "peak_mb": null
+  },
+  "transform_sparse_add_col": {
+   "group": "select",
+   "time": 0.6249109169984877,
+   "peak_mb": null
+  },
+  "basic_stats": {
+   "group": "stats",
+   "time": 0.2104042920000211,
+   "peak_mb": null
+  },
+  "distributions": {
+   "group": "stats",
+   "time": 1.5576178329974937,
+   "peak_mb": null
+  },
+  "contingencies": {
+   "group": "stats",
+   "time": 2.8552654169980087,
+   "peak_mb": null
+  },
+  "impute_average": {
+   "group": "preprocess",
+   "time": 0.4281402500018885,
+   "peak_mb": null
+  },
+  "normalize": {
+   "group": "preprocess",
+   "time": 0.6129118750031921,
+   "peak_mb": null
+  },
+  "continuize": {
+   "group": "preprocess",
+   "time": 0.20104004200038617,
+   "peak_mb": null
+  },
+  "discretize_eqfreq": {
+   "group": "preprocess",
+   "time": 2.107843292000325,
+   "peak_mb": null
+  },
+  "pipeline_impute_cont_norm": {
+   "group": "preprocess",
+   "time": 1.0985274580016267,
+   "peak_mb": null
+  },
+  "euclidean_5k": {
+   "group": "model",
+   "time": 0.517545708000398,
+   "peak_mb": null
+  },
+  "naive_bayes_fit_predict": {
+   "group": "model",
+   "time": 3.4918099169990455,
+   "peak_mb": null
+  },
+  "logreg_fit_predict": {
+   "group": "model",
+   "time": 1.5257180000007793,
+   "peak_mb": null
+  },
+  "tree_fit_20k": {
+   "group": "model",
+   "time": 0.16935174999889568,
+   "peak_mb": null
+  },
+  "random_forest_20k": {
+   "group": "model",
+   "time": 0.9611416250008915,
+   "peak_mb": null
+  },
+  "knn_predict_20k": {
+   "group": "model",
+   "time": 0.42940595900290646,
+   "peak_mb": null
+  },
+  "kmeans_k5": {
+   "group": "model",
+   "time": 16.6988620000011,
+   "peak_mb": null
+  },
+  "cv5_naive_bayes": {
+   "group": "model",
+   "time": 11.88729395900009,
+   "peak_mb": null
+  }
+ }
+}

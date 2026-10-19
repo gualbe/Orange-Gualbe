@@ -1,6 +1,7 @@
 # Test methods with long descriptive names can omit docstrings
 # pylint: disable=missing-docstring, protected-access, unsubscriptable-object
 import unittest
+import warnings
 from unittest.mock import patch, Mock
 
 import numpy as np
@@ -334,6 +335,7 @@ class TestOWCorrelations(WidgetTest):
                                  self.widget.Outputs.features)])
 
     @patch("Orange.widgets.data.owcorrelations.SIZE_LIMIT", 2000)
+    @patch("Orange.widgets.data.owcorrelations.MAX_VECTORIZED_ATTRS", 0)
     def test_vizrank_use_heuristic(self):
         self.send_signal(self.widget.Inputs.data, self.data_cont)
         self.wait_until_finished()
@@ -490,6 +492,38 @@ class TestKMeansCorrelationHeuristic(unittest.TestCase):
         clusters = heuristic.get_clusters_of_attributes()
         result = sorted([c.instances for c in clusters])
         self.assertListEqual(result, [[0, 2, 3], [1]]),
+
+class TestPairwiseCorrelations(unittest.TestCase):
+    """Correlations of all pairs at once equal those of pearsonr/spearmanr
+    computed on rows where both values are defined"""
+
+    def test_matches_scipy(self):
+        from itertools import combinations
+        from scipy.stats import pearsonr, spearmanr
+        from Orange.widgets.data.owcorrelations import pairwise_correlations
+
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((300, 6)) * [1, 1e5, 1e-3, 1, 1, 1] + 1e4
+        X[:, 1] += X[:, 0] * 3e5
+        X[:, 2] = np.round(X[:, 2] * 1e3)
+        X[:, 3] = 7
+        X[rng.random(X.shape) < 0.1] = np.nan
+        X[:, 4] = rng.standard_normal(300)  # no missing values
+        X[:, 5] = rng.standard_normal(300)
+        for corr_type, func in ((CorrelationType.PEARSON, pearsonr),
+                                (CorrelationType.SPEARMAN, spearmanr)):
+            r, p, computed = pairwise_correlations(X, corr_type)
+            for i, j in combinations(range(6), 2):
+                if not computed[i, j]:
+                    self.assertEqual(corr_type, CorrelationType.SPEARMAN)
+                    continue
+                mask = ~np.isnan(X[:, i]) & ~np.isnan(X[:, j])
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    exp_r, exp_p = func(X[mask, i], X[mask, j])
+                np.testing.assert_allclose(r[i, j], exp_r, atol=1e-12)
+                np.testing.assert_allclose(p[i, j], exp_p, atol=1e-12)
+            self.assertTrue(computed[4, 5])
 
 
 if __name__ == "__main__":

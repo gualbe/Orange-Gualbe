@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from itertools import combinations, groupby, chain
 
 import numpy as np
+from scipy import stats
 from scipy.stats import spearmanr, pearsonr
 from sklearn.cluster import KMeans
 
@@ -31,6 +32,8 @@ from Orange.widgets.widget import OWWidget, AttributeList, Msg
 
 NAN = 2
 SIZE_LIMIT = 1000000
+# Correlations of up to this many attributes are computed all at once
+MAX_VECTORIZED_ATTRS = 1000
 
 
 class CorrelationType(IntEnum):
@@ -128,6 +131,81 @@ class KMeansCorrelationHeuristic:
         return states
 
 
+def _pearson_matrix(X):
+    """
+    Pearson correlations between all pairs of columns of X, each pair
+    computed on rows where both values are defined (as `pearsonr` on those
+    rows), with the number of such rows.
+
+    Columns are centered by their means, which keeps the sums accurate; rows
+    are processed in blocks to bound the memory.
+    """
+    n_rows, n_cols = X.shape
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        means = np.nan_to_num(np.nanmean(X, axis=0))
+    shape = (n_cols, n_cols)
+    n, sx, sxx, sxy = (np.zeros(shape) for _ in range(4))
+    block = max(1000, 2_000_000 // max(n_cols, 1))
+    for start in range(0, n_rows, block):
+        xb = X[start:start + block] - means
+        valid = ~np.isnan(xb)
+        m = valid.astype(float)
+        xb[~valid] = 0
+        n += m.T @ m
+        sx += xb.T @ m
+        sxx += (xb * xb).T @ m
+        sxy += xb.T @ xb
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cov = sxy - sx * sx.T / n
+        var_x = sxx - sx * sx / n
+        r = cov / np.sqrt(var_x * var_x.T)
+    return np.clip(r, -1, 1), n
+
+
+def _pearson_pvalues(r, n):
+    # as in scipy.stats.pearsonr: r follows a beta distribution
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ab = n / 2 - 1
+        p = 2 * stats.beta.sf(np.abs(r), ab, ab, loc=-1, scale=2)
+    p[(n == 2) & ~np.isnan(r)] = 1
+    return p
+
+
+def _spearman_pvalues(r, n):
+    # as in scipy.stats.spearmanr: t-test with n - 2 degrees of freedom
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = r * np.sqrt((n - 2) / ((r + 1.0) * (1.0 - r)))
+        p = 2 * stats.t.sf(np.abs(t), n - 2)
+    return p
+
+
+def pairwise_correlations(X, corr_type):
+    """
+    Return correlations, p-values and a mask of computed pairs for all pairs
+    of columns of X. Spearman correlations of pairs of columns with missing
+    values are not computed (their ranks depend on the pair).
+    """
+    X = np.asarray(X, dtype=float)
+    n_cols = X.shape[1]
+    if corr_type == CorrelationType.PEARSON:
+        r, n = _pearson_matrix(X)
+        return r, _pearson_pvalues(r, n), n >= 2
+    complete = ~np.isnan(X).any(axis=0)
+    r = np.full((n_cols, n_cols), np.nan)
+    p = np.full((n_cols, n_cols), np.nan)
+    computed = np.zeros((n_cols, n_cols), dtype=bool)
+    cols = np.flatnonzero(complete)
+    if len(cols) and len(X) >= 2:
+        ranks = stats.rankdata(X[:, cols], axis=0)
+        rc, n = _pearson_matrix(ranks)
+        index = np.ix_(cols, cols)
+        r[index] = rc
+        p[index] = _spearman_pvalues(rc, n)
+        computed[index] = True
+    return r, p, computed
+
+
 class CorrelationRank(VizRankDialogAttrPair):
     """
     Correlations rank widget.
@@ -141,6 +219,7 @@ class CorrelationRank(VizRankDialogAttrPair):
         self.heuristic = None
         self.use_heuristic = False
         self.sel_feature_index = None
+        self._correlations = None
 
     def initialize(self):
         super().initialize()
@@ -153,9 +232,11 @@ class CorrelationRank(VizRankDialogAttrPair):
             self.sel_feature_index = data.domain.index(self.master.feature)
         else:
             self.sel_feature_index = None
+        self._correlations = None
         if data:
-            # use heuristic if data is too big
-            self.use_heuristic = len(data) * len(self.attrs) ** 2 > SIZE_LIMIT \
+            # use heuristic if data is too big to compute all correlations
+            self.use_heuristic = len(self.attrs) > MAX_VECTORIZED_ATTRS \
+                and len(data) * len(self.attrs) ** 2 > SIZE_LIMIT \
                 and self.sel_feature_index is None
             if self.use_heuristic:
                 self.heuristic = KMeansCorrelationHeuristic(data)
@@ -163,6 +244,17 @@ class CorrelationRank(VizRankDialogAttrPair):
     def compute_score(self, state):
         (attr1, attr2), corr_type = state, self.master.correlation_type
         data = self.master.actual_data.X
+        if data.shape[1] <= MAX_VECTORIZED_ATTRS:
+            # all correlations are computed at the first call (in the
+            # worker thread)
+            if self._correlations is None \
+                    or self._correlations[0] != corr_type:
+                self._correlations = \
+                    (corr_type, *pairwise_correlations(data, corr_type))
+            _, r, p, computed = self._correlations
+            if computed[attr1, attr2]:
+                r, p = r[attr1, attr2], p[attr1, attr2]
+                return -abs(r) if not np.isnan(r) else np.inf, r, p
         col1, col2 = data[:, attr1], data[:, attr2]
         mask = ~np.isnan(col1) & ~np.isnan(col2)
         if np.sum(mask) < 2:
