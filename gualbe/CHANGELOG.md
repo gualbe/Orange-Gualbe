@@ -54,7 +54,34 @@ Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
   la misma semántica que scipy. Feature Statistics con 1M filas:
   4,1 s → 2,4 s.
 
+- **Merge Data.** Para elegir columnas de emparejamiento contaba los valores
+  comunes ordenando todas las cadenas (`np.intersect1d`); ahora usa
+  conjuntos. 1M filas: 3,1 s → 1,2 s.
+- **Rank.** Information Gain, Gain Ratio y Gini comparten discretización y
+  cada uno la repetía; ahora se hace una vez. Puntuaciones idénticas.
+  200k filas, 7 métodos: 2,6 s → 1,4 s.
+
 ### Correcciones
+
+- **Nomogram con regresión logística multiclase** mostraba probabilidades
+  erróneas (sigmoide por clase en vez de softmax): en iris[53], 15/92/34 %
+  frente a 2/94/5 % del modelo
+  ([#7326](https://github.com/biolab/orange3/issues/7326)). Se integra la
+  PR upstream #7331 (aún sin fusionar allí), verificada aquí con 40
+  instancias, varias configuraciones y arrastrando marcadores.
+- **Select Columns** podía adoptar en silencio la selección de otro Select
+  Columns del workflow cuando a los datos les faltaba una columna
+  ([#7020](https://github.com/biolab/orange3/issues/7020)); ahora prefiere
+  su propio contexto.
+- **DBSCAN** sustituía el `eps` elegido por el usuario al recibir datos o
+  al abrir el workflow, y no permitía valores fuera de la gráfica
+  ([#6047](https://github.com/biolab/orange3/issues/6047)). En workflows
+  guardados antes basta con fijarlo una vez.
+- **CSV Import** leía fechas de una misma columna unas como mes/día y otras
+  como día/mes ([#6499](https://github.com/biolab/orange3/issues/6499));
+  ahora usa un solo formato por columna.
+- **Venn Diagram** fallaba con datos dispersos
+  ([#5700](https://github.com/biolab/orange3/issues/5700)).
 
 - **Guardar sin perder cifras.** Las variables numéricas sin decimales
   fijados (CSV Import, datos creados desde numpy) se escribían con `%g`, es
