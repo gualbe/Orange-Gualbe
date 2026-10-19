@@ -56,6 +56,7 @@ from orangecanvas.utils import assocf
 from orangewidget.utils import enum_as_int
 
 import Orange.data
+from Orange.data.pandas_compat import _exceeds_float_precision
 from Orange.misc.collections import natural_sorted
 
 from Orange.widgets import widget, gui, settings
@@ -1857,6 +1858,11 @@ def pandas_to_table(df):
             coldata = series.fillna('').values
             assert isinstance(coldata, np.ndarray)
             orangecol = coldata
+            var = Orange.data.StringVariable.make(str(header))
+        elif pdtypes.is_integer_dtype(series) \
+                and _exceeds_float_precision(series):
+            # e.g. identifiers; as floats, they would lose digits (gh-6203)
+            orangecol = series.astype(str).values.astype(object)
             var = Orange.data.StringVariable.make(str(header))
         elif pdtypes.is_integer_dtype(series):
             coldata = series.values

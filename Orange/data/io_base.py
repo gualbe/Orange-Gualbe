@@ -10,7 +10,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import lru_cache
 from itertools import chain, repeat
-from math import isnan
+from math import isinf, isnan
 
 from os import path, remove
 from fnmatch import fnmatch
@@ -111,6 +111,27 @@ _RE_SIMPLE_FLOAT_FORMAT = re.compile(r"%(?:\.(\d+))?([gf])")
 _NA_STRINGS = {v for v in MISSING_VALUES if isinstance(v, str)}
 
 
+
+
+def _exact(text, value):
+    """
+    Return `text` (a formatted `value`) if it converts back to `value`, and
+    otherwise the shortest string that does, so writing loses no precision.
+    """
+    try:
+        if float(text) == value:
+            return text
+    except ValueError:  # e.g. "?" for infinity
+        return text
+    return _shortest(value)
+
+
+def _shortest(value):
+    """The shortest string that converts back to `value`; "?" for inf"""
+    if isinf(value):
+        return "?"
+    text = repr(float(value))
+    return text[:-2] if text.endswith(".0") else text
 
 @contextmanager
 def _gc_paused():
@@ -691,6 +712,12 @@ class _FileWriter:
         if var.is_time:
             return var.repr_val
         elif var.is_continuous:
+            if type(var).repr_val is ContinuousVariable.repr_val:
+                if var.format_str == "%g":  # number of decimals is not set
+                    return lambda value: \
+                        "" if isnan(value) else _shortest(value)
+                return lambda value: \
+                    "" if isnan(value) else _exact(var.repr_val(value), value)
             return lambda value: "" if isnan(value) else var.repr_val(value)
         elif var.is_discrete:
             return lambda value: "" if isnan(value) else var.values[int(value)]
@@ -736,6 +763,9 @@ class _FileWriter:
                 wide = np.abs(np.round(column, decimals) - column) \
                     > var._max_round_diff  # pylint: disable=protected-access
         match = _RE_SIMPLE_FLOAT_FORMAT.fullmatch(fmt)
+        if var.format_str == "%g":
+            # number of decimals is not set: shortest exact representation
+            return _columns.format_floats(column, None, "r", 0, 0)
         if match is not None:
             code, precision = match.group(2), int(match.group(1) or 6)
             return _columns.format_floats(
@@ -747,6 +777,8 @@ class _FileWriter:
         if wide is not None:
             for i in np.flatnonzero(wide):
                 formatted[i] = f"{values[i]:.{var.number_of_decimals + 2}f}"
+        formatted = [_exact(text, value)
+                     for text, value in zip(formatted, values)]
         for i in np.flatnonzero(np.isinf(column)):
             formatted[i] = "?"
         for i in np.flatnonzero(np.isnan(column)):

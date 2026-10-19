@@ -120,6 +120,18 @@ def _(c):
     Table.from_file(c.csv)
 
 
+@bench("tab_write_3dec", "io", repeat=1)
+def _(c):
+    # realistic data: numbers with three decimals (the default benchmark
+    # data are random full-precision floats, written with ~17 digits)
+    d = c.data.copy()
+    with d.unlocked(d.X):
+        d.X[:, :40] = np.round(d.X[:, :40], 3)
+    t0 = time.perf_counter()
+    d.save(os.path.join(c.tmp, "out3.tab"))
+    return time.perf_counter() - t0
+
+
 @bench("csv_write", "io", repeat=1)
 def _(c):
     c.data.save(os.path.join(c.tmp, "out.csv"))
@@ -268,8 +280,9 @@ def run_one(func, ctx, repeat, mem):
     for _ in range(repeat):
         gc.collect()
         t0 = time.perf_counter()
-        func(ctx)
-        times.append(time.perf_counter() - t0)
+        own_time = func(ctx)  # a benchmark may time only part of its work
+        times.append(own_time if own_time is not None
+                     else time.perf_counter() - t0)
     peak = None
     if mem:
         gc.collect()

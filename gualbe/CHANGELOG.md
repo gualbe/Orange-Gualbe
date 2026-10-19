@@ -41,6 +41,23 @@ Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
 
 ### Correcciones
 
+- **Guardar sin perder cifras.** Las variables numéricas sin decimales
+  fijados (CSV Import, datos creados desde numpy) se escribían con `%g`, es
+  decir, con 6 cifras: -22112215 se guardaba como -2.21122e+07
+  ([#6916](https://github.com/biolab/orange3/issues/6916)). Ahora se escribe
+  la representación exacta más corta; las variables con decimales fijados
+  mantienen su formato (p. ej. `0.500`) mientras sea exacto. La ida y vuelta
+  es exacta en .tab, .csv y Excel. Coste: los números de precisión completa
+  ocupan unas 17 cifras, así que con datos aleatorios de 1M filas la
+  escritura pasa de 7,2 s a ~15,7 s y la lectura de 10,9 s a ~15 s; con
+  datos de 3 decimales no cambia (7,0 s).
+- **Apóstrofos al leer .tab/.csv.** Un apóstrofo se tomaba como comilla y
+  uno sin cerrar se tragaba filas sin aviso
+  ([#6067](https://github.com/biolab/orange3/issues/6067)).
+- **Enteros largos (identificadores).** Los enteros de más de 2^53 se leían
+  como números y perdían cifras; sin tipo declarado, ahora se leen como
+  texto en .tab/.csv, `table_from_frame` y CSV Import
+  ([#6203](https://github.com/biolab/orange3/issues/6203)).
 - **kNN con distancia de Mahalanobis** guardaba la covarianza del primer
   ajuste en el learner: en validación cruzada todas las particiones usaban
   la de la primera y, con otros datos, las predicciones eran erróneas

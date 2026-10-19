@@ -1,5 +1,6 @@
 import codecs
 import os.path
+import re
 import subprocess
 from datetime import datetime
 from collections import defaultdict
@@ -151,6 +152,21 @@ def isnastr(arr, out=None):
 _as_string_array = np.frompyfunc(str, 1, 1)
 
 
+_RE_INTEGER = re.compile(r"\s*[+-]?\d+\s*")
+
+
+def _loses_integer_digits(orig_values, values):
+    """
+    Tell whether any value written as an integer is too large to be stored
+    exactly as float64.
+    """
+    with np.errstate(invalid="ignore"):
+        large = np.flatnonzero(np.abs(values) > 2 ** 53)
+    return any(_RE_INTEGER.fullmatch(orig_values[i])
+               and int(orig_values[i]) != int(values[i])
+               for i in large)
+
+
 def guess_data_type(orig_values, namask=None):
     """
     Use heuristics to guess data type.
@@ -173,7 +189,12 @@ def guess_data_type(orig_values, namask=None):
             values = orig_values
             coltype = StringVariable
         else:
-            coltype = ContinuousVariable
+            if _loses_integer_digits(orig_values, values):
+                # e.g. identifiers; as floats, they would lose digits (gh-6203)
+                values = orig_values
+                coltype = StringVariable
+            else:
+                coltype = ContinuousVariable
 
     if coltype is not ContinuousVariable:
         # when not continuous variable it can still be time variable even it

@@ -1,0 +1,47 @@
+{
+ "meta": {
+  "rows": 1000000,
+  "rev": "7b6066c16-dirty",
+  "python": "3.12.15",
+  "numpy": "2.3.5",
+  "machine": "macOS-27.0.1-arm64-arm-64bit",
+  "date": "2026-10-19 20:06:02"
+ },
+ "results": {
+  "pickle_roundtrip": {
+   "group": "io",
+   "time": 0.14010220899945125,
+   "peak_mb": null
+  },
+  "tab_write": {
+   "group": "io",
+   "time": 15.688004916999489,
+   "peak_mb": null
+  },
+  "tab_read": {
+   "group": "io",
+   "time": 14.54702766599803,
+   "peak_mb": null
+  },
+  "tab_write_3dec": {
+   "group": "io",
+   "time": 6.84533137499966,
+   "peak_mb": null
+  },
+  "csv_write": {
+   "group": "io",
+   "time": 15.717813291998027,
+   "peak_mb": null
+  },
+  "to_pandas": {
+   "group": "io",
+   "time": 0.2576902920009161,
+   "peak_mb": null
+  },
+  "from_pandas": {
+   "group": "io",
+   "time": 0.3242261250015872,
+   "peak_mb": null
+  }
+ }
+}
