@@ -260,6 +260,15 @@ def to_numeric(s, _):
     return np.asarray(pd.to_numeric(s))
 
 
+# Integers above this cannot all be represented exactly as float64
+_MAX_EXACT_FLOAT_INT = 2 ** 53
+
+
+def _exceeds_float_precision(s):
+    largest = s.abs().max()
+    return not pd.isna(largest) and largest > _MAX_EXACT_FLOAT_INT
+
+
 def vars_from_df(df, role=None, force_nominal=False, variables=None):
     if variables is not None:
         assert len(variables) == len(df.columns)
@@ -306,6 +315,11 @@ def vars_from_df(df, role=None, force_nominal=False, variables=None):
                 var = DiscreteVariable(
                     str(column), discrete.categories.astype(str).tolist()
                 )
+            elif is_integer_dtype(s) and (role is None or role == Role.Meta) \
+                    and _exceeds_float_precision(s):
+                # e.g. identifiers; as floats, they would lose digits (gh-6203)
+                _role = Role.Meta
+                var = StringVariable(str(column))
             elif is_numeric_dtype(s):
                 var = ContinuousVariable(
                     # set number of decimals to 0 if int else keeps default behaviour
