@@ -1,3 +1,4 @@
+import copy
 import inspect
 import itertools
 from collections.abc import Iterable
@@ -647,15 +648,10 @@ class KNNBase:
         super().__init__(preprocessors=preprocessors)
         self.params = vars()
 
-    def _initialize_wrapped(self, X=None):
+    def _initialize_wrapped(self):
         params = self.params.copy()
         if params.get("metric") == "cosine":
             params["metric"] = "euclidean"
-        elif params.get("metric") == "mahalanobis" \
-                and params.get("metric_params") is None and X is not None:
-            # The covariance belongs to this fit only: storing it in
-            # self.params would reuse it for later fits on other data
-            params["metric_params"] = {"VI": self._inverse_covariance(X)}
         return self.__wraps__(**params)
 
     @staticmethod
@@ -667,13 +663,18 @@ class KNNBase:
             return np.linalg.pinv(cov)
 
     def fit(self, X, Y, W=None):
+        learner = self
+        if self.params.get("metric") == "mahalanobis" \
+                and self.params.get("metric_params") is None:
+            # The covariance belongs to this fit only: storing it in
+            # self.params would reuse it for later fits on other data
+            # (gh-7311). Scikit-learn's brute-force algorithm requires VI.
+            learner = copy.copy(self)
+            learner.params = {**self.params, "metric_params":
+                              {"VI": self._inverse_covariance(X)}}
         if self.params["metric"] == "cosine":
             X = normalize(X, norm="l2", axis=1, copy=True)
-        clf = self._initialize_wrapped(X)
-        Y = Y.reshape(-1)
-        if W is None or not self.supports_weights:
-            return self.__returns__(clf.fit(X, Y))
-        return self.__returns__(clf.fit(X, Y, sample_weight=W.reshape(-1)))
+        return super(KNNBase, learner).fit(X, Y, W)
 
 
 class NNBase:
