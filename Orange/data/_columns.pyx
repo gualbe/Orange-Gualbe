@@ -193,7 +193,8 @@ def format_floats(const double[:] column, const unsigned char[:] wide,
     `wide_precision` and format code "f" instead.
 
     If the result does not convert back to the same number, the shortest
-    string that does is used instead, so no precision is lost.
+    string that does is used instead, so no precision is lost. Code "r"
+    gives the shortest such string directly.
     """
     cdef:
         Py_ssize_t i, n = column.shape[0]
@@ -210,6 +211,8 @@ def format_floats(const double[:] column, const unsigned char[:] wide,
             formatted[i] = "?"
         elif has_wide and wide[i]:
             formatted[i] = _exact_str(value, b'f', wide_precision)
+        elif ccode == b'r':
+            formatted[i] = _double_to_str(value, b'r', 0)
         else:
             formatted[i] = _exact_str(value, ccode, precision)
     return formatted
