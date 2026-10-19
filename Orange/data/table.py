@@ -1752,9 +1752,24 @@ class Table(Sequence, Storage):
         # Zero-sized arrays cannot be made writeable, yet the below
         # assignment would fail despite doing nothing.
         if len(self) > 0:
-            self._get_column_view(index)[:] = data
+            # a column of a sparse matrix is a copy, not a view
+            if 0 <= index < self.X.shape[1] and sp.issparse(self.X):
+                self._set_sparse_column(self.X, index, data)
+            elif index < 0 and sp.issparse(self.metas):
+                self._set_sparse_column(self.metas, -1 - index, data)
+            else:
+                self._get_column_view(index)[:] = data
         else:
             assert len(self) == len(data)
+
+    @staticmethod
+    def _set_sparse_column(array, col, data):
+        column = np.broadcast_to(np.asarray(data, dtype=float),
+                                 (array.shape[0], ))
+        with warnings.catch_warnings():
+            # changing the sparsity structure is intended here
+            warnings.simplefilter("ignore", sp.SparseEfficiencyWarning)
+            array[:, col] = column[:, None]
 
     def _filter_is_defined(self, columns=None, negate=False):
         # structure of function is obvious; pylint: disable=too-many-branches

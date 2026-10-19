@@ -692,7 +692,9 @@ class OWDataSets(OWWidget):
                 self.__awaiting_state = None
 
             if not di.islocal:
-                pr = Progress()
+                # parented, so it outlives this state while the download
+                # thread may still emit (gh-7343)
+                pr = Progress(self)
                 pr.advance.connect(self.__progress_advance, Qt.QueuedConnection)
 
                 self.progressBarInit()

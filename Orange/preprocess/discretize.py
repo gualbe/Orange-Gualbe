@@ -140,7 +140,9 @@ class Discretizer(Transformation):
         return dvar
 
     def __eq__(self, other):
-        return super().__eq__(other) and self.points == other.points
+        # points may be a list or an array (e.g. from FixedTimeWidth)
+        return super().__eq__(other) \
+            and np.array_equal(self.points, other.points)
 
     def __hash__(self):
         return hash((type(self), self.variable, tuple(self.points)))
