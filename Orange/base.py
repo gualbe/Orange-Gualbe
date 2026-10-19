@@ -646,19 +646,33 @@ class KNNBase:
         super().__init__(preprocessors=preprocessors)
         self.params = vars()
 
-    def _initialize_wrapped(self):
+    def _initialize_wrapped(self, X=None):
         params = self.params.copy()
         if params.get("metric") == "cosine":
             params["metric"] = "euclidean"
+        elif params.get("metric") == "mahalanobis" \
+                and params.get("metric_params") is None and X is not None:
+            # The covariance belongs to this fit only: storing it in
+            # self.params would reuse it for later fits on other data
+            params["metric_params"] = {"VI": self._inverse_covariance(X)}
         return self.__wraps__(**params)
 
+    @staticmethod
+    def _inverse_covariance(X):
+        cov = np.atleast_2d(np.cov(X, rowvar=False))
+        try:
+            return np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            return np.linalg.pinv(cov)
+
     def fit(self, X, Y, W=None):
-        if self.params["metric_params"] is None and \
-                        self.params.get("metric") == "mahalanobis":
-            self.params["metric_params"] = {"V": np.cov(X.T)}
         if self.params["metric"] == "cosine":
             X = normalize(X, norm="l2", axis=1, copy=True)
-        return super().fit(X, Y, W)
+        clf = self._initialize_wrapped(X)
+        Y = Y.reshape(-1)
+        if W is None or not self.supports_weights:
+            return self.__returns__(clf.fit(X, Y))
+        return self.__returns__(clf.fit(X, Y, sample_weight=W.reshape(-1)))
 
 
 class NNBase:
