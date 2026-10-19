@@ -1,3 +1,5 @@
+import sys
+
 from AnyQt.QtCore import Qt, QRectF, QPoint, QPointF
 from AnyQt.QtGui import QBrush, QWheelEvent
 from AnyQt.QtWidgets import QGraphicsScene, QWidget, QApplication, QStyle
@@ -7,7 +9,20 @@ from Orange.widgets.tests.base import GuiTest
 from Orange.widgets.utils.stickygraphicsview import StickyGraphicsView
 
 
+def _offscreen_on_macos():
+    # With the offscreen platform on macOS, the Fusion style reserves less
+    # space for the scroll bar than the bar takes, so the view never scrolls
+    # to the very bottom; this does not happen with the native platform
+    return sys.platform == "darwin" \
+        and QApplication.platformName() == "offscreen"
+
+
 class TestStickyGraphicsView(GuiTest):
+    def setUp(self):
+        super().setUp()
+        if _offscreen_on_macos():
+            self.skipTest("scroll bar geometry differs on offscreen macOS")
+
     def create_view(self):
         view = StickyGraphicsView()
         scene = QGraphicsScene(view)
