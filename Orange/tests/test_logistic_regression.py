@@ -13,6 +13,14 @@ from Orange.evaluation import CrossValidation, CA
 from Orange.util import OrangeDeprecationWarning
 
 
+def _effective_penalty(skl_clf):
+    # scikit-learn >= 1.8 expresses the penalty with l1_ratio and C
+    if skl_clf.penalty != "deprecated":
+        return skl_clf.penalty
+    if skl_clf.C == np.inf:
+        return None
+    return {0: "l2", 1: "l1"}.get(skl_clf.l1_ratio, "elasticnet")
+
 class TestLogisticRegressionLearner(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -140,19 +148,19 @@ class TestLogisticRegressionLearner(unittest.TestCase):
         lr = LogisticRegressionLearner(penalty="l2", solver="auto")
         skl_clf = lr._initialize_wrapped()
         self.assertEqual(skl_clf.solver, "lbfgs")
-        self.assertEqual(skl_clf.penalty, "l2")
+        self.assertEqual(_effective_penalty(skl_clf), "l2")
 
         # lbfgs is default for no penalty
         lr = LogisticRegressionLearner(penalty=None, solver="auto")
         skl_clf = lr._initialize_wrapped()
         self.assertEqual(skl_clf.solver, "lbfgs")
-        self.assertEqual(skl_clf.penalty, None)
+        self.assertEqual(_effective_penalty(skl_clf), None)
 
         # liblinear is default for l2 penalty
         lr = LogisticRegressionLearner(penalty="l1", solver="auto")
         skl_clf = lr._initialize_wrapped()
         self.assertEqual(skl_clf.solver, "saga")
-        self.assertEqual(skl_clf.penalty, "l1")
+        self.assertEqual(_effective_penalty(skl_clf), "l1")
 
     def test_supports_weights(self):
         self.assertTrue(LogisticRegressionLearner().supports_weights)

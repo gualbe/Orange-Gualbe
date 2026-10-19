@@ -612,7 +612,9 @@ class OWMergeData(widget.OWWidget):
         string_cols = [i for i, var in enumerate(domain.metas) if var.is_string]
         metas = self._join_array_by_indices(
             self.data.metas, reduced_extra.metas, lefti, righti, string_cols)
-        if rightu is not None:
+        # Skip transformation when there are no unmatched rows: some compute
+        # values (e.g. PCA's) fail on empty tables (gh-7132)
+        if rightu is not None and len(rightu):
             # This domain is used for transforming the extra rows for outer join
             # It must use the original - not renamed - variables from right, so
             # values are copied,

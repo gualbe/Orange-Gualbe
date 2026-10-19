@@ -1,0 +1,155 @@
+{
+ "meta": {
+  "rows": 1000000
+ },
+ "results": {
+  "box_plot": {
+   "time": 0.08266791699861642,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "concatenate": {
+   "time": 0.09402975000193692,
+   "outputs": {
+    "Data": "Table[2000000]"
+   }
+  },
+  "continuize": {
+   "time": 0.20471220900071785,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "correlations": {
+   "time": 9.521316792001016,
+   "outputs": {
+    "Data": "Table[1000000]",
+    "Features": "AttributeList[2]",
+    "Correlations": "Table[780]"
+   }
+  },
+  "data_sampler": {
+   "time": 0.13431770800161758,
+   "outputs": {
+    "Data Sample": "Table[700000]",
+    "Remaining Data": "Table[300000]"
+   }
+  },
+  "data_table": {
+   "time": 0.3195629170004395,
+   "outputs": {
+    "Selected Data": "Table[1000000]",
+    "Data": "Table[1000000]"
+   }
+  },
+  "discretize": {
+   "time": 2.150569417000952,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "distances_5k": {
+   "time": 0.4953637090002303,
+   "outputs": {
+    "Distances": "DistMatrix[5000]"
+   }
+  },
+  "distributions": {
+   "time": 0.199116583000432,
+   "outputs": {
+    "Data": "Table[1000000]",
+    "Histogram Data": "Table[4]"
+   }
+  },
+  "feature_constructor": {
+   "time": 0.2782917910008109,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "feature_statistics": {
+   "time": 4.603566583002248,
+   "outputs": {
+    "Statistics": "Table[51]"
+   }
+  },
+  "group_by": {
+   "time": 0.7138567919973866,
+   "outputs": {
+    "Data": "Table[2]"
+   }
+  },
+  "impute": {
+   "time": 0.25536449999708566,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "merge_data": {
+   "time": 3.3552233330010495,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  },
+  "pca": {
+   "time": 3.4335031249975145,
+   "outputs": {
+    "Transformed Data": "Table[1000000]",
+    "Data": "Table[1000000]",
+    "Components": "Table[2]",
+    "PCA": "PCA"
+   }
+  },
+  "pivot": {
+   "time": 0.1936695839976892,
+   "outputs": {
+    "Pivot Table": "Table[2]",
+    "Grouped Data": "Table[2]"
+   }
+  },
+  "predictions": {
+   "time": 1.39831541699823,
+   "outputs": {
+    "Selected Predictions": "Table[1000000]",
+    "Predictions": "Table[1000000]",
+    "Evaluation Results": "Results"
+   }
+  },
+  "preprocess": {
+   "time": 1.2373336250020657,
+   "outputs": {
+    "Preprocessor": "PreprocessorList",
+    "Preprocessed Data": "Table[1000000]"
+   }
+  },
+  "rank": {
+   "time": 5.604361459001666,
+   "outputs": {
+    "Reduced Data": "Table[1000000]",
+    "Scores": "Table[50]",
+    "Features": "AttributeList[5]"
+   }
+  },
+  "scatter_plot": {
+   "time": 1.1204993329993158,
+   "outputs": {
+    "Data": "Table[1000000]",
+    "Features": "AttributeList[2]"
+   }
+  },
+  "test_and_score": {
+   "time": 83.78316654100126,
+   "outputs": {
+    "Predictions": "Table[1000000]",
+    "Evaluation Results": "Results"
+   }
+  },
+  "unique": {
+   "time": 2.6662871669977903,
+   "outputs": {
+    "Data": "Table[1000000]"
+   }
+  }
+ }
+}

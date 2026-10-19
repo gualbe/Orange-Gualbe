@@ -7,6 +7,7 @@ import sklearn.ensemble as skl_ensemble
 from Orange.classification import SklLearner, SklModel
 from Orange.data import Variable, DiscreteVariable, Table
 from Orange.preprocess.score import LearnerScorer
+from Orange.misc._skl_compat import deprecated_params
 
 __all__ = ["GBClassifier"]
 
@@ -51,3 +52,10 @@ class GBClassifier(SklLearner, _FeatureScorerMixin):
                  preprocessors=None):
         super().__init__(preprocessors=preprocessors)
         self.params = vars()
+
+    def _initialize_wrapped(self):
+        params = self.params.copy()
+        # 'criterion' has no effect since scikit-learn 1.9 (removed in 1.11)
+        if "criterion" in deprecated_params(self.__wraps__):
+            params.pop("criterion", None)
+        return self.__wraps__(**params)

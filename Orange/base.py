@@ -1,3 +1,4 @@
+import copy
 import inspect
 import itertools
 from collections.abc import Iterable
@@ -149,7 +150,8 @@ class Learner(ReprableWithPreprocessors):
 
         progress_callback(0.1, "Fitting...")
         model = self._fit_model(data)
-        model.used_vals = [np.unique(y).astype(int) for y in data.Y[:, None].T]
+        model.used_vals = [np.unique(y[~np.isnan(y)]).astype(int)
+                           for y in data.Y[:, None].T]
         if not hasattr(model, "domain") or model.domain is None:
             # some models set domain themself and it should be respected
             # e.g. calibration learners set the base_learner's domain which
@@ -652,13 +654,27 @@ class KNNBase:
             params["metric"] = "euclidean"
         return self.__wraps__(**params)
 
+    @staticmethod
+    def _inverse_covariance(X):
+        cov = np.atleast_2d(np.cov(X, rowvar=False))
+        try:
+            return np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            return np.linalg.pinv(cov)
+
     def fit(self, X, Y, W=None):
-        if self.params["metric_params"] is None and \
-                        self.params.get("metric") == "mahalanobis":
-            self.params["metric_params"] = {"V": np.cov(X.T)}
+        learner = self
+        if self.params.get("metric") == "mahalanobis" \
+                and self.params.get("metric_params") is None:
+            # The covariance belongs to this fit only: storing it in
+            # self.params would reuse it for later fits on other data
+            # (gh-7311). Scikit-learn's brute-force algorithm requires VI.
+            learner = copy.copy(self)
+            learner.params = {**self.params, "metric_params":
+                              {"VI": self._inverse_covariance(X)}}
         if self.params["metric"] == "cosine":
             X = normalize(X, norm="l2", axis=1, copy=True)
-        return super().fit(X, Y, W)
+        return super(KNNBase, learner).fit(X, Y, W)
 
 
 class NNBase:

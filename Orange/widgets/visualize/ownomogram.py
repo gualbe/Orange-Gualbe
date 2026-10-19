@@ -1015,7 +1015,9 @@ class OWNomogram(OWWidget):
         all_items = name_items + [point_text, probs_text]
         name_offset = -max(t.boundingRect().width() for t in all_items) - 30
         w = self.view.viewport().rect().width()
-        max_width = w + name_offset - 30
+        # In a narrow view, a too short ruler would be coarse enough to clip
+        # markers and show wrong probabilities; scroll instead
+        max_width = max(w + name_offset - 30, 150)
 
         points = [self.points[i][self.target_class_index]
                   for i in attr_inds]

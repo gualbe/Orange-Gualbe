@@ -5,6 +5,7 @@ from Orange.classification import SklLearner, SklModel
 from Orange.preprocess import Normalize
 from Orange.preprocess.score import LearnerScorer
 from Orange.data import Variable, DiscreteVariable
+from Orange.misc._skl_compat import logistic_regression_params
 
 
 __all__ = ["LogisticRegressionLearner"]
@@ -56,5 +57,6 @@ class LogisticRegressionLearner(SklLearner, _FeatureScorerMixin):
                 solver = "lbfgs"
         params["solver"] = solver
 
-        return self.__wraps__(**params)
+        return self.__wraps__(
+            **logistic_regression_params(self.__wraps__, params))
 

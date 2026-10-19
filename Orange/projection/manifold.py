@@ -18,6 +18,7 @@ from Orange.distance import Distance, DistanceModel, Euclidean
 from Orange.misc import DistMatrix
 from Orange.projection import SklProjector, Projector, Projection
 from Orange.projection.base import TransformDomain, ComputeValueProjector
+from Orange.misc._skl_compat import mds_params
 
 __all__ = ["MDS", "Isomap", "LocallyLinearEmbedding", "SpectralEmbedding",
            "TSNE"]
@@ -158,7 +159,7 @@ class MDS(SklProjector):
             init_data = None
 
         params["dissimilarity"] = dissimilarity
-        mds = self.__wraps__(**params)
+        mds = self.__wraps__(**mds_params(self.__wraps__, params))
         mds.fit(X, y=Y, init=init_data)
         mds.domain = domain
         return mds
