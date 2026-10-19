@@ -152,13 +152,15 @@ class CSVReader(FileFormat, DataTableMixin):
                         ''.join(file.readline() for _ in range(10)),
                         self.DELIMITERS)
                     delimiter = dialect.delimiter
-                    quotechar = dialect.quotechar
                 except UnicodeDecodeError as e:
                     error = e
                     continue
                 except csv.Error:
                     delimiter = self.DELIMITERS[0]
-                    quotechar = csv.excel.quotechar
+                # The quote character is not sniffed: apostrophes in text
+                # made the sniffer pick "'", and an unclosed one then
+                # swallowed rows without warning (gh-6067)
+                quotechar = csv.excel.quotechar
 
                 file.seek(0)
                 try:
