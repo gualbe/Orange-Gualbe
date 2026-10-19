@@ -138,8 +138,10 @@ class Results(SimpleNamespace):
     scorer_scores: Tuple[ScoreMeta, Tuple[np.ndarray, List[str]]] = None
 
 
-def get_method_scores(data: Table, method: ScoreMeta) -> np.ndarray:
-    estimator = method.scorer()
+def get_method_scores(data: Table, method: ScoreMeta,
+                      estimator=None) -> np.ndarray:
+    if estimator is None:
+        estimator = method.scorer()
     # The widget handles infs and nans.
     # Any errors in scorers need to be detected elsewhere.
     with np.errstate(all="ignore"):
@@ -181,6 +183,23 @@ def get_scorer_scores(
     return scores, labels
 
 
+def _preprocess_keeping_attributes(data, preprocessors):
+    """
+    Return data after preprocessing, or None if preprocessing fails or does
+    not keep the same attributes in the same order (scores are then computed
+    by each scorer on the original data).
+    """
+    try:
+        pdata = data
+        for pp in preprocessors:
+            pdata = pp(pdata)
+    except Exception:  # pylint: disable=broad-except
+        return None
+    if [a.name for a in pdata.domain.attributes] \
+            != [a.name for a in data.domain.attributes]:
+        return None
+    return pdata
+
 def run(
     data: Table,
     methods: List[ScoreMeta],
@@ -196,8 +215,26 @@ def run(
             raise InterruptException
         return scores
 
+    # Scorers that share preprocessors (e.g. information gain, gain ratio and
+    # Gini share discretization) use data preprocessed once
+    preprocessed = {}
+
+    def get_shared_method_scores(data, method):
+        estimator = method.scorer()
+        preprocessors = list(estimator.preprocessors)
+        key = tuple(map(id, preprocessors))
+        if key not in preprocessed:
+            preprocessed[key] = _preprocess_keeping_attributes(
+                data, preprocessors)
+        pdata = preprocessed[key]
+        if pdata is None:
+            return get_method_scores(data, method, estimator)
+        estimator.preprocessors = []
+        return get_method_scores(pdata, method, estimator)
+
     method_scores = tuple(
-        (method, call_with_cb(get_method_scores, method)) for method in methods
+        (method, call_with_cb(get_shared_method_scores, method))
+        for method in methods
     )
     scorer_scores = tuple(
         (scorer, call_with_cb(get_scorer_scores, scorer)) for scorer in scorers
