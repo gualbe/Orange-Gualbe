@@ -1,0 +1,9 @@
+id	text
+continuous	string
+	meta
+1	'Hello there'
+2	A plain sentence.
+3	It's fine.
+4	'Tis the season to be jolly
+5	Another sentence, ok
+6	Last one
