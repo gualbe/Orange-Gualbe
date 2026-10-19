@@ -4,6 +4,7 @@ from Orange.data import Table
 from Orange.evaluation import CrossValidation, RMSE
 from Orange.preprocess.score import Scorer
 from Orange.regression import GBRegressor
+from Orange.misc._skl_compat import deprecated_params
 
 
 class TestGBRegressor(unittest.TestCase):
@@ -49,7 +50,15 @@ class TestGBRegressor(unittest.TestCase):
     def test_default_params(self):
         booster = GBRegressor()
         model = booster(self.housing)
-        self.assertDictEqual(booster.params, model.skl_model.get_params())
+        params = booster.params
+        if "criterion" in deprecated_params(booster.__wraps__):
+            # not passed on: it has no effect since scikit-learn 1.9
+            params = {k: v for k, v in params.items() if k != "criterion"}
+            skl_params = model.skl_model.get_params()
+            self.assertEqual(skl_params.pop("criterion"), "deprecated")
+        else:
+            skl_params = model.skl_model.get_params()
+        self.assertDictEqual(params, skl_params)
 
     def test_set_params(self):
         booster = GBRegressor(n_estimators=42, max_depth=4)
