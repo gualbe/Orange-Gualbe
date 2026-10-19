@@ -39,6 +39,21 @@ Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
   0,54 → 0,26 s, Continuize 0,43 → 0,20 s, Preprocess 2,3 → 1,2 s,
   Predictions 2,2 → 1,4 s, Discretize 2,8 → 2,2 s.
 
+- **Árbol de clasificación de Orange** (widget Tree, Test & Score). Cada
+  atributo numérico se ordena una sola vez en la raíz y el orden se reparte
+  entre los hijos, en vez de reordenar en cada nodo. Árbol idéntico.
+  Validación cruzada (5) con 200k filas: 10,4 s → 5,9 s. El árbol de
+  regresión no cambia, porque allí el orden entre empates podría alterar
+  los últimos bits de las sumas.
+- **Correlations.** Todos los pares a la vez con productos de matrices, en
+  lugar de `pearsonr`/`spearmanr` par a par; misma tabla de resultados
+  (diferencias de redondeo < 1e-13) y sin la heurística de k-means hasta
+  1000 atributos. 1M filas × 40 atributos: 10,5 s → 1,9 s.
+- **Moda (`nanmode`, Feature Statistics).** Por columnas, con `bincount`
+  para valores categóricos y ordenando copias contiguas para el resto, con
+  la misma semántica que scipy. Feature Statistics con 1M filas:
+  4,1 s → 2,4 s.
+
 ### Correcciones
 
 - **Guardar sin perder cifras.** Las variables numéricas sin decimales
