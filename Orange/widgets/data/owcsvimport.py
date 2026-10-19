@@ -1607,20 +1607,32 @@ def load_csv(path, opts, progress_callback=None, compatibility_mode=False):
             f, encoding=opts.encoding,
             progress_callback=progress_callback)
         stack.callback(file.detach)
+        # Time columns are read as strings and parsed below, with one format
+        # for the whole column where possible (gh-6499)
+        if parse_dates:
+            dtypes = {**dtypes, **{i: str for i in parse_dates}}
         df = pd.read_csv(
             file, sep=opts.dialect.delimiter, dialect=opts.dialect,
             skipinitialspace=opts.dialect.skipinitialspace,
             header=header, skiprows=skiprows,
-            dtype=dtypes, parse_dates=parse_dates,
+            dtype=dtypes, parse_dates=False,
             na_values=na_values, keep_default_na=False,
             **numbers_format_kwds
         )
         if parse_dates:
             for date_col in parse_dates:
-                if df.dtypes[date_col] == "object":
-                    df[df.columns[date_col]] = pd.to_datetime(
-                        df.iloc[:, date_col], errors="coerce", utc=True,
+                column = df.iloc[:, date_col]
+                parsed = consistent_datetime(column)
+                if parsed is None:
+                    try:
+                        parsed = pd.to_datetime(column)
+                    except (ValueError, TypeError):
+                        parsed = column
+                if parsed.dtype == "object":
+                    parsed = pd.to_datetime(
+                        column, errors="coerce", utc=True,
                     ).dt.tz_localize(None)
+                df[df.columns[date_col]] = parsed
         if prefix:
             df.columns = [f"{prefix}{column}" for column in df.columns]
 
@@ -1666,6 +1678,43 @@ def guess_types(
     return df
 
 
+# Date formats tried for a whole column; month-first comes before day-first,
+# as in pandas, so day-first is used only when month-first does not fit
+_DATE_FORMATS = (
+    "%Y-%m-%d", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M",
+    "%Y-%m-%dT%H:%M:%S", "%Y/%m/%d", "%Y/%m/%d %H:%M:%S",
+    "%m/%d/%Y", "%m/%d/%y", "%m/%d/%Y %H:%M", "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%y %H:%M", "%m-%d-%Y",
+    "%d/%m/%Y", "%d/%m/%y", "%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S",
+    "%d/%m/%y %H:%M", "%d-%m-%Y", "%d.%m.%Y", "%d.%m.%y", "%d.%m.%Y %H:%M",
+    "%d.%m.%Y %H:%M:%S",
+)
+
+
+def consistent_datetime(col):
+    """
+    Parse a column of strings with the first of _DATE_FORMATS that fits all
+    its values, or return None if none does.
+
+    Parsing each value separately (as pandas does when it cannot infer a
+    format) may read 08/03/18 as month-first and 28/03/18 as day-first in the
+    same column (gh-6499).
+    """
+    values = pd.Series(col.dropna().unique()).astype(str).str.strip()
+    values = values[values != ""]
+    if not len(values):
+        return None
+    for fmt in _DATE_FORMATS:
+        for sample in (values[:50], values):
+            try:
+                pd.to_datetime(sample, format=fmt, errors="raise")
+            except (ValueError, TypeError):
+                break
+        else:
+            return pd.to_datetime(col, format=fmt, errors="coerce")
+    return None
+
+
 def guess_data_type(col: pd.Series) -> pd.Series:
     """
     Guess column types. Logic is same than in guess_data_type from io_utils
@@ -1697,7 +1746,8 @@ def guess_data_type(col: pd.Series) -> pd.Series:
             return col.astype("category")
     else:  # object
         try:
-            return pd.to_datetime(col)
+            parsed = consistent_datetime(col)
+            return parsed if parsed is not None else pd.to_datetime(col)
         except (ValueError, TypeError):
             unique_values = col.unique()
             if len(unique_values) < 100 and len(unique_values) < len(col)**0.7:
