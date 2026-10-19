@@ -377,7 +377,13 @@ class _ArrayConversion:
 
 class _FromTableConversion:
 
-    max_rows_at_once = 5000
+    # Rows are converted in blocks to bound the memory for intermediate
+    # results; blocks hold about max_cells_at_once values, but no more than
+    # max_rows_at_once and no fewer than min_rows_at_once rows. Larger blocks
+    # have less per-block overhead, which adds up with chained transformations
+    max_rows_at_once = 100_000
+    min_rows_at_once = 5000
+    max_cells_at_once = 2_500_000
 
     def __init__(self, source, destination):
         conversion = DomainConversion(source, destination)
@@ -401,8 +407,18 @@ class _FromTableConversion:
             else:
                 self.subarray.append(part)
 
+    def _rows_at_once(self, source):
+        n_columns = max(
+            1,
+            len(source.domain.variables) + len(source.domain.metas),
+            sum(len(conv.variables) for conv in self.columnwise))
+        return min(self.max_rows_at_once,
+                   max(self.min_rows_at_once,
+                       self.max_cells_at_once // n_columns))
+
     def convert(self, source, row_indices, clear_cache_after_part):
         n_rows = _selection_length(row_indices, len(source))
+        rows_at_once = self._rows_at_once(source)
 
         res = {}
 
@@ -415,7 +431,7 @@ class _FromTableConversion:
         for array_conv in self.columnwise:
             parts[array_conv.target] = array_conv.init_partial_results(n_rows)
 
-        if n_rows <= self.max_rows_at_once:
+        if n_rows <= rows_at_once:
             for array_conv in self.columnwise:
                 out = array_conv.get_columns(source, row_indices,
                                              parts[array_conv.target],
@@ -425,7 +441,7 @@ class _FromTableConversion:
             i_done = 0
 
             while i_done < n_rows:
-                target_indices = slice(i_done, min(n_rows, i_done + self.max_rows_at_once))
+                target_indices = slice(i_done, min(n_rows, i_done + rows_at_once))
                 source_indices = _select_from_selection(row_indices, target_indices,
                                                        len(source))
 
@@ -436,7 +452,7 @@ class _FromTableConversion:
                                                  target_indices)
                     array_conv.add_partial_result(parts[array_conv.target], out)
 
-                i_done += self.max_rows_at_once
+                i_done += rows_at_once
 
                 # clear cache after a part is done
                 if clear_cache_after_part:
