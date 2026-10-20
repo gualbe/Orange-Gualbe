@@ -63,6 +63,13 @@ Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
 
 ### Correcciones
 
+- **Silueta en k-Means.** La columna "Silhouette" que añade k-Means es
+  `arctan(s)/π + 0,5` (entre 0,25 y 0,75), no la silueta: no coincidía con
+  Silhouette Plot y un punto mal asignado aparecía como ~0,49
+  ([#7280](https://github.com/biolab/orange3/issues/7280)). Se mantiene esa
+  columna, para no alterar workflows existentes, y se añade
+  **"Silhouette score"** con la silueta real (de −1 a 1), también como media
+  por cluster en los centroides.
 - **Nomogram con regresión logística multiclase** mostraba probabilidades
   erróneas (sigmoide por clase en vez de softmax): en iris[53], 15/92/34 %
   frente a 2/94/5 % del modelo
@@ -133,8 +140,12 @@ Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
   parámetros obsoletos se traducen a los nuevos detectándolos por la firma
   del estimador (`Orange/misc/_skl_compat.py`), con resultados idénticos.
   De paso, la regresión logística con 1M filas pasa de 2,3 s a 1,7 s.
-  Pendiente: `probability` de SVM (se elimina en 1.11), porque la
-  alternativa cambia ligeramente las probabilidades.
+  SVM: scikit-learn 1.11 elimina `probability=True`, y la alternativa
+  (calibrar aparte) cambiaría ligeramente las probabilidades (no las
+  clases). Por ahora se limita a `scikit-learn<1.11` en
+  `requirements-core.txt` y en la receta de conda, sin cambiar resultados;
+  se migrará cuando se anuncie la 1.11, idealmente alineado con Orange
+  oficial.
 
 ### Tests
 

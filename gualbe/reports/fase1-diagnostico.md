@@ -152,8 +152,9 @@ antes y después, como en la primera tanda.
 `gualbe/CHANGELOG.md`). Descartadas por no compensar: P5 (Unique: agrupar
 con pandas no es más rápido que el diccionario actual) y P8 (la
 discretización por frecuencias necesita la distribución ordenada completa
-para dar los mismos cortes). Decidido: #6916 se aplica escribiendo todas las
-cifras.
+para dar los mismos cortes). Decidido (19-20 oct): #6916 se aplica escribiendo
+todas las cifras; #7280 añade la columna "Silhouette score" sin tocar la
+actual; SVM se limita a scikit-learn<1.11 hasta migrar con la 1.11.
 
 **Decisiones que necesitan tu visto bueno**, porque cambian salidas
 existentes:
