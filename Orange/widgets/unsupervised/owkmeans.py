@@ -532,29 +532,38 @@ class OWKMeans(widget.OWWidget):
             values=["C%d" % (x + 1) for x in range(km.k)],
             compute_value=km
         )
-        silhouette_var = ContinuousVariable(
-            get_unique_names(domain, "Silhouette"))
+        # "Silhouette" holds silhouettes mapped to (0, 1) by arctan, which
+        # suits plots; "Silhouette score" holds the silhouettes themselves,
+        # from -1 to 1 (gh-7280)
+        silhouette_name, score_name = get_unique_names(
+            domain, ["Silhouette", "Silhouette score"])
+        silhouette_var = ContinuousVariable(silhouette_name)
+        score_var = ContinuousVariable(score_name)
         if km.silhouette_samples is not None:
             self.Warning.no_silhouettes.clear()
-            scores = np.arctan(km.silhouette_samples) / np.pi + 0.5
+            raw_scores = km.silhouette_samples
+            scores = np.arctan(raw_scores) / np.pi + 0.5
             clust_scores = []
             clust_ids = km.labels
             for i in range(km.k):
                 in_clust = clust_ids == i
                 if in_clust.any():
-                    clust_scores.append(np.mean(scores[in_clust]))
+                    clust_scores.append([np.mean(scores[in_clust]),
+                                         np.mean(raw_scores[in_clust])])
                 else:
-                    clust_scores.append(0.)
-            clust_scores = np.atleast_2d(clust_scores).T
+                    clust_scores.append([0., 0.])
+            clust_scores = np.array(clust_scores)
         else:
             self.Warning.no_silhouettes()
-            scores = np.nan
-            clust_scores = np.full((km.k, 1), np.nan)
+            scores = raw_scores = np.nan
+            clust_scores = np.full((km.k, 2), np.nan)
 
-        new_domain = add_columns(domain, metas=[cluster_var, silhouette_var])
+        new_domain = add_columns(
+            domain, metas=[cluster_var, silhouette_var, score_var])
         new_table = self.data.transform(new_domain)
         with new_table.unlocked(new_table.metas):
             new_table.set_column(silhouette_var, scores)
+            new_table.set_column(score_var, raw_scores)
 
         domain_attributes = set(domain.attributes)
         centroid_attributes = [
@@ -565,7 +574,7 @@ class OWKMeans(widget.OWWidget):
             for attr in km.domain.attributes]
         centroid_domain = add_columns(
             Domain(centroid_attributes, [], domain.metas),
-            metas=[cluster_var, silhouette_var])
+            metas=[cluster_var, silhouette_var, score_var])
         # Table is constructed from a copy of centroids: if data is stored in
         # the widget, it can be modified, so the widget should preferrably
         # output a copy. The number of centroids is small, hence copying it is
