@@ -5,9 +5,11 @@ efecto medido (benchmark, filas, antes → después). Tiempos medidos con
 `gualbe/bench/large_data.py` y `gualbe/bench/widgets.py` en un Apple M4 Max;
 los resultados están en `gualbe/bench/results/`.
 
-## Sin publicar
+## 3.41.0+gualbe.1 (20 de octubre de 2026)
 
-Base: upstream master `bd6fef4ca` (3.41.0.dev, posterior a 3.40.0).
+Base: upstream master `71c3613e0` (desarrollo de 3.41.0, posterior a la
+versión oficial 3.40.0). Suite completa: 6098 tests sin fallos en macOS
+(Apple M4 Max, Python 3.12, scikit-learn 1.9.1, numpy 2.3.5).
 
 ### Rendimiento
 
