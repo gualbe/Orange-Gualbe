@@ -1,0 +1,77 @@
+name: Orange-Gualbe wheels
+
+# Builds wheels of an Orange-Gualbe release for Linux, macOS and Windows and
+# attaches them to its GitHub release. Run manually with the release tag.
+# (The upstream "Build" workflow is disabled in this fork: it would publish
+# to PyPI.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Etiqueta de la versión (p. ej. 3.41.0+gualbe.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build_wheels:
+    name: Wheels ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Linux x86_64, os: ubuntu-latest, archs: x86_64 }
+          - { name: Linux aarch64, os: ubuntu-24.04-arm, archs: aarch64 }
+          - { name: macOS arm64, os: macos-14, archs: arm64 }
+          - { name: macOS x86_64, os: macos-15-intel, archs: x86_64 }
+          - { name: Windows AMD64, os: windows-latest, archs: AMD64 }
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          submodules: "true"
+
+      - name: Set the release version
+        # Orange's setup.py marks untagged builds as .dev versions; a release
+        # of Orange-Gualbe is versioned by its tag (e.g. 3.41.0+gualbe.1)
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          sed -i.bak -E "s/^VERSION = '.*'/VERSION = '${TAG}'/; s/^ISRELEASED = False/ISRELEASED = True/" setup.py
+          grep -E "^(VERSION|ISRELEASED) =" setup.py
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.3.0
+        env:
+          CIBW_BUILD: "cp311-* cp312-* cp313-* cp314-*"
+          CIBW_ARCHS: ${{ matrix.archs }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
+
+  upload_release_assets:
+    name: Attach wheels to the release
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          path: wheels
+          merge-multiple: true
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          ls -la wheels
+          gh release upload "$TAG" wheels/*.whl --repo "$GITHUB_REPOSITORY" --clobber
