@@ -5,6 +5,17 @@ efecto medido (benchmark, filas, antes → después). Tiempos medidos con
 `gualbe/bench/large_data.py` y `gualbe/bench/widgets.py` en un Apple M4 Max;
 los resultados están en `gualbe/bench/results/`.
 
+## Sin publicar
+
+### Compatibilidad
+
+- **ElasticNetCV con scikit-learn < 1.7.** El código oficial pasa
+  `alphas=100`, que solo aceptan las versiones >= 1.7, aunque el requisito
+  declarado es `scikit-learn>=1.5.1`: la regresión Elastic Net con validación
+  cruzada fallaba con scikit-learn 1.5 y 1.6. El número de alphas se traduce
+  a `n_alphas` en esas versiones (y se omite `n_alphas`, obsoleto, en 1.7 y
+  1.8). Comprobado con scikit-learn 1.5.2.
+
 ## 3.41.0+gualbe.1 (20 de octubre de 2026)
 
 Base: upstream master `71c3613e0` (desarrollo de 3.41.0, posterior a la

@@ -7,6 +7,7 @@ from Orange.data import Variable, ContinuousVariable
 from Orange.preprocess import Normalize
 from Orange.preprocess.score import LearnerScorer
 from Orange.regression import Learner, Model, SklLearner, SklModel
+from Orange.misc._skl_compat import elastic_net_cv_params
 
 
 __all__ = ["LinearRegressionLearner", "RidgeRegressionLearner",
@@ -85,6 +86,10 @@ class ElasticNetCVLearner(LinearRegressionLearner):
                  positive=False, preprocessors=None):
         super().__init__(preprocessors=preprocessors)
         self.params = vars()
+
+    def _initialize_wrapped(self):
+        return self.__wraps__(
+            **elastic_net_cv_params(self.__wraps__, self.params))
 
 
 class SGDRegressionLearner(LinearRegressionLearner):

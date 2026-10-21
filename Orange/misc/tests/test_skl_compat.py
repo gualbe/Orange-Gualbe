@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 
 from Orange.misc._skl_compat import (
-    deprecated_params, logistic_regression_params, mds_params
+    deprecated_params, logistic_regression_params, mds_params,
+    elastic_net_cv_params
 )
 
 
@@ -26,6 +27,21 @@ class OldMDS:
 class NewMDS:
     def __init__(self, metric_mds=True, metric="euclidean", init="warn",
                  dissimilarity="deprecated"):
+        pass
+
+
+class OldENCV:  # scikit-learn < 1.7
+    def __init__(self, n_alphas=100, alphas=None):
+        pass
+
+
+class MidENCV:  # scikit-learn 1.7 and 1.8
+    def __init__(self, n_alphas="deprecated", alphas="warn"):
+        pass
+
+
+class NewENCV:  # scikit-learn >= 1.9
+    def __init__(self, alphas=100):
         pass
 
 
@@ -54,6 +70,16 @@ class TestSklCompat(unittest.TestCase):
         self.assertEqual(mds_params(NewMDS, params),
                          {"metric_mds": False, "metric": "precomputed",
                           "init": "random"})
+
+    def test_elastic_net_cv_params(self):
+        params = {"n_alphas": 100, "alphas": 100, "eps": 0.001}
+        self.assertEqual(elastic_net_cv_params(OldENCV, params),
+                         {"n_alphas": 100, "alphas": None, "eps": 0.001})
+        self.assertEqual(elastic_net_cv_params(MidENCV, params),
+                         {"alphas": 100, "eps": 0.001})
+        self.assertEqual(elastic_net_cv_params(NewENCV, params), params)
+        explicit = {"n_alphas": 100, "alphas": [0.1, 1], "eps": 0.001}
+        self.assertEqual(elastic_net_cv_params(OldENCV, explicit), explicit)
 
 
 if __name__ == "__main__":
