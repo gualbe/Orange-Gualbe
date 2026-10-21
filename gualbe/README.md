@@ -22,7 +22,7 @@ Versions are tagged as `<upstream version>+gualbe.<n>`, e.g. `3.41.0+gualbe.1`.
 conda create -n orange-gualbe -c conda-forge python=3.12 "numpy<2.4" scipy \
     "scikit-learn<1.11" "pandas<3" bottleneck cython "pyqt=5.15" pyqtwebengine anyqt \
     matplotlib pyqtgraph qtconsole openpyxl xlrd xlsxwriter networkx opentsne \
-    python-louvain "xgboost<2.1"
+    python-louvain "xgboost<2.1" "libblas=*=*accelerate"   # Accelerate BLAS on Apple Silicon
 conda activate orange-gualbe
 pip install -e . --no-build-isolation
 python -m Orange.canvas          # start the GUI
@@ -50,3 +50,22 @@ gualbe/sync_upstream.sh 3.41.0     # or a specific release tag
 ## Changes
 
 See [CHANGELOG.md](CHANGELOG.md).
+
+## Release binaries
+
+GitHub Actions is used only to build release binaries (public repositories do
+not consume Actions minutes); inherited upstream workflows are disabled.
+
+1. Tag the release on `gualbe` (e.g. `3.41.0+gualbe.2`) and publish a GitHub
+   release with notes from `gualbe/releases/`.
+2. Wheels for Linux, macOS and Windows (Python 3.11-3.14), attached to the
+   release automatically:
+   `gh workflow run "Orange-Gualbe wheels" -R gualbe/Orange-Gualbe --ref gualbe -f tag=<tag>`
+3. Installers from [gualbe/Orange-Gualbe-installers](https://github.com/gualbe/Orange-Gualbe-installers)
+   (branch `orange-gualbe`), each tested by running the full test suite on
+   the installed app:
+   `gh workflow run "Build Windows Installer" -R gualbe/Orange-Gualbe-installers --ref orange-gualbe -f tag=<tag>`
+   `gh workflow run "Build macOS dmg" -R gualbe/Orange-Gualbe-installers --ref orange-gualbe -f tag=<tag>`
+   then download the artifacts (`gh run download`) and attach them with
+   `gh release upload`.
+
