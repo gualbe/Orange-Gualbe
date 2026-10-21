@@ -64,3 +64,21 @@ def mds_params(estimator, params):
     if param_default(estimator, "init") == "warn":
         params["init"] = "random"
     return params
+
+
+def elastic_net_cv_params(estimator, params):
+    """
+    Pass the number of alphas as `alphas` (scikit-learn >= 1.7) or as
+    `n_alphas` (earlier versions, where `alphas` must be a list or None),
+    and drop the deprecated `n_alphas` in 1.7 and 1.8.
+    """
+    n_alphas_default = param_default(estimator, "n_alphas")
+    if n_alphas_default is None:
+        return params
+    params = dict(params)
+    if n_alphas_default == "deprecated":
+        params.pop("n_alphas", None)
+    elif isinstance(params.get("alphas"), (int, np.integer)):
+        params["n_alphas"] = params["alphas"]
+        params["alphas"] = None
+    return params
