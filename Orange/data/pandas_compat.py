@@ -26,7 +26,12 @@ __all__ = ['table_from_frame', 'table_to_frame']
 
 
 def is_orange_object_type(s):
-    return is_string_dtype(s) or is_object_dtype(s)
+    # is_object_dtype first: it is cheap, while is_string_dtype inspects the
+    # values of object columns. Categoricals are excluded, as before pandas 3
+    # support: is_string_dtype is also true for categoricals of strings, which
+    # would then be needlessly (and slowly) parsed as dates.
+    return is_object_dtype(s) or (
+        is_string_dtype(s) and not isinstance(s.dtype, pd.CategoricalDtype))
 
 # Patch a bug in pandas SparseFrameAccessor.to_dense
 # As of pandas=3.0.0.dev0+1524.g23c497bb2f, to_dense ignores _constructor

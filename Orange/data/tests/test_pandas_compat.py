@@ -398,6 +398,18 @@ class TestPandasCompat(unittest.TestCase):
         # check if exactly ContinuousVariable and not subtype TimeVariable
         self.assertIsInstance(table.domain.attributes[0], DiscreteVariable)
 
+    def test_table_from_frame_categorical_of_dates_is_discrete(self):
+        """
+        A categorical column stays discrete even if its categories look like
+        dates; it must not be parsed as a datetime column.
+        """
+        df = pd.DataFrame({"d": pd.Categorical(
+            ["2020-01-01", "2020-01-02", "2020-01-01", "2020-01-02"])})
+        table = table_from_frame(df)
+        var = table.domain.attributes[0]
+        self.assertIsInstance(var, DiscreteVariable)
+        self.assertEqual(var.values, ("2020-01-01", "2020-01-02"))
+
     def testa_table_from_frame_string(self):
         """
         Test if string-like variables are handled correctly and nans are replaced
