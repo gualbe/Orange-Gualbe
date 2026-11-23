@@ -25,7 +25,7 @@ jobs:
         include:
           - { name: Linux x86_64, os: ubuntu-latest, archs: x86_64 }
           - { name: Linux aarch64, os: ubuntu-24.04-arm, archs: aarch64 }
-          - { name: macOS arm64, os: macos-14, archs: arm64 }
+          - { name: macOS arm64, os: macos-15, archs: arm64 }
           - { name: macOS x86_64, os: macos-15-intel, archs: x86_64 }
           - { name: Windows AMD64, os: windows-latest, archs: AMD64 }
 
