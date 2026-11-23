@@ -7,6 +7,45 @@ los resultados están en `gualbe/bench/results/`.
 
 ## Sin publicar
 
+## 3.41.0+gualbe.2 (23 de noviembre de 2026)
+
+Base: versión oficial **Orange 3.41.0** (`46443558d`, 8 de noviembre de
+2026). Suite completa: 6105 tests sin fallos en macOS (Apple M4 Max,
+Python 3.12, scikit-learn 1.9.1), tanto con numpy 2.3.5 y pandas 2.3.3 como
+con numpy 2.5.5 y pandas 3.1.1. Informe completo en
+`gualbe/reports/sync-3.41.0.md`.
+
+### Integración de Orange 3.41.0
+
+- Se incorporan todas las novedades oficiales de la 3.41.0: traducción al
+  castellano, Python 3.15, compatibilidad con numpy 2.4 y pandas 3, kNN con
+  distancia del coseno, opciones de vista en Distributions, ficheros
+  recientes en QSettings y unas 40 correcciones.
+- Tres correcciones que Orange-Gualbe traía antes que la versión oficial
+  pasan a ser las oficiales: softmax en Nomogram (#7331), el cierre de
+  Datasets durante una descarga (gh-7343) y Excel con la fila de indicadores
+  vacía (gh-7276, ahora con la solución oficial). Del Nomogram queda como
+  propio el ancho mínimo de la regla.
+- **Dependencias:**
+  - numpy y pandas sin tope, como en la versión oficial, tras pasar la suite
+    completa con numpy 2.5.5 y pandas 3.1.1;
+  - `orange-widget-base>=4.29.0`;
+  - se mantiene `scikit-learn<1.11` (la oficial pone `<1.10`; los cambios de
+    la 1.10 ya los cubre `Orange/misc/_skl_compat.py`).
+
+### Correcciones
+
+- **Conversión desde pandas con categóricas de texto.** Para admitir el tipo
+  `str` de pandas 3, Orange 3.41.0 comprueba `is_string_dtype`, que también
+  es cierto para las categóricas con categorías de texto. Cada columna
+  categórica se intentaba interpretar entera como fechas, y una categórica
+  cuyas categorías parecen fechas pasaba a `TimeVariable` en vez de
+  `DiscreteVariable`. Se excluyen las categóricas, como antes de la 3.41.0.
+  `from_pandas` con 1M filas: 0,50 s → 0,34 s (igual que en gualbe.1).
+- **CSV Import con pandas 3:** una columna de fechas con zonas horarias
+  mezcladas se quedaba como texto, porque se comprobaba el tipo `object`
+  (con pandas 3 es `str`).
+
 ### Compatibilidad
 
 - **ElasticNetCV con scikit-learn < 1.7.** El código oficial pasa

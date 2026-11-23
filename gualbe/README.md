@@ -19,8 +19,8 @@ Versions are tagged as `<upstream version>+gualbe.<n>`, e.g. `3.41.0+gualbe.1`.
 ## Setup (macOS / conda)
 
 ```bash
-conda create -n orange-gualbe -c conda-forge python=3.12 "numpy<2.4" scipy \
-    "scikit-learn<1.11" "pandas<3" bottleneck cython "pyqt=5.15" pyqtwebengine anyqt \
+conda create -n orange-gualbe -c conda-forge python=3.12 numpy scipy \
+    "scikit-learn<1.11" pandas bottleneck cython "pyqt=5.15" pyqtwebengine anyqt \
     matplotlib pyqtgraph qtconsole openpyxl xlrd xlsxwriter networkx opentsne \
     python-louvain "xgboost<2.1" "libblas=*=*accelerate"   # Accelerate BLAS on Apple Silicon
 conda activate orange-gualbe
