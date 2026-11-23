@@ -343,7 +343,7 @@ class TSNERunner:
 
 
 class OWtSNEGraph(OWScatterPlotBase):
-    aggregate_dense_regions = Setting(True)
+    aggregate_dense_regions = Setting(False)
 
     def update_coordinates(self):
         super().update_coordinates()
@@ -685,7 +685,9 @@ class OWtSNE(OWDataProjectionWidget, ConcurrentWidgetMixin):
         return embedding
 
     def _get_projection_variables(self):
-        if self.tsne_embedding is None:
+        if self.tsne_embedding is None or self.distance_matrix is not None:
+            # for a distance matrix avoid domain transformations, because there
+            # is no data; instead, pick positions from the computed visualization
             return super()._get_projection_variables()
         proposed = [a.name for a in self.tsne_embedding.domain.attributes]
         names = get_unique_names(self.data.domain, proposed)
