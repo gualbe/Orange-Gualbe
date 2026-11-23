@@ -1628,7 +1628,8 @@ def load_csv(path, opts, progress_callback=None, compatibility_mode=False):
                         parsed = pd.to_datetime(column)
                     except (ValueError, TypeError):
                         parsed = column
-                if parsed.dtype == "object":
+                # not "object": with pandas 3, unparsed strings have dtype str
+                if not pd.api.types.is_datetime64_any_dtype(parsed):
                     parsed = pd.to_datetime(
                         column, errors="coerce", utc=True,
                     ).dt.tz_localize(None)
